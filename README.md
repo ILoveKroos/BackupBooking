@@ -229,10 +229,10 @@ Dự án này được cấp phép dưới MIT License.
 ## 📧 Liên Hệ
 
 Nếu có câu hỏi, vui lòng liên hệ:
-- Email: info@beautybooking.com
-- Website: https://beautybooking.com
+- Email: 
+- Website: 
 
 ---
 
 **Phiên bản:** 1.0.0  
-**Cập nhật lần cuối:** 2026-03-16
+**Cập nhật lần cuối:** 2026-03-18
