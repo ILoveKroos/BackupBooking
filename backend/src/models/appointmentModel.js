@@ -119,6 +119,23 @@ const cancelAppointment = (id, callback) => {
   });
 };
 
+const addStaffReview = (id, user_id, staff_rating, staff_review, callback) => {
+  const query = `
+    UPDATE appointments
+    SET staff_rating = ?, staff_review = ?, reviewed_at = NOW()
+    WHERE id = ?
+      AND user_id = ?
+      AND status = 'completed'
+      AND staff_id IS NOT NULL
+      AND (staff_rating IS NULL)
+  `;
+
+  db.query(query, [staff_rating, staff_review || '', id, user_id], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result);
+  });
+};
+
 const checkTimeConflict = (staff_id, appointment_date, appointment_time, callback) => {
   const query = `
     SELECT COUNT(*) AS count
@@ -142,5 +159,6 @@ module.exports = {
   getAppointmentById,
   updateAppointmentStatus,
   cancelAppointment,
+  addStaffReview,
   checkTimeConflict
 };

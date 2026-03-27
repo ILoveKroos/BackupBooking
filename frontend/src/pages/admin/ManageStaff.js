@@ -11,7 +11,7 @@ const normalizeStaff = (list = []) =>
 function ManageStaff() {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -105,8 +105,6 @@ function ManageStaff() {
   return (
     <div className="manage-staff">
       <h1>Quản lý nhân viên</h1>
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <button className="btn-primary" onClick={() => setShowForm((prev) => !prev)}>
         {showForm ? 'Đóng form' : '+ Thêm nhân viên'}

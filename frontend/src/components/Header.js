@@ -19,23 +19,37 @@ function Header({ user, onLogout }) {
 
   const adminLinks = (
     <>
-      <Link to="/admin/dashboard">Dashboard</Link>
+      <Link to="/admin/dashboard">Tổng quan</Link>
       <Link to="/admin/services">Dịch vụ</Link>
       <Link to="/admin/staff">Nhân viên</Link>
+      <Link to="/admin/customers">Khách hàng</Link>
       <Link to="/admin/appointments">Lịch hẹn</Link>
       <Link to="/admin/analytics">Phân tích</Link>
     </>
   );
 
+  const staffLinks = (
+    <>
+      <Link to="/staff/customers">Khách hàng</Link>
+    </>
+  );
+
+  const getRoleLabel = () => {
+    if (!user) return '';
+    if (user.role === 'admin') return 'Quản trị viên';
+    if (user.role === 'staff') return 'Nhân viên';
+    return 'Khách hàng';
+  };
+
   return (
     <header className="header">
       <div className="header-container">
         <div className="header-left">
-          <Link to="/" className="logo" aria-label="BeautyBook home">
+          <Link to="/" className="logo" aria-label="Trang chủ BeautyBook">
             <span className="logo-mark">BB</span>
             <span className="logo-text">
               <strong>BeautyBook</strong>
-              <small>Book services in seconds</small>
+              <small>Đặt lịch nhanh trong vài giây</small>
             </span>
           </Link>
 
@@ -44,6 +58,7 @@ function Header({ user, onLogout }) {
             <Link to="/services">Khám phá dịch vụ</Link>
             {user && user.role === 'customer' && customerLinks}
             {user && user.role === 'admin' && adminLinks}
+            {user && user.role === 'staff' && staffLinks}
           </nav>
         </div>
 
@@ -52,7 +67,7 @@ function Header({ user, onLogout }) {
             <>
               <div className="user-menu">
                 <span className="user-name">{user.name}</span>
-                <small>{user.role === 'admin' ? 'Quản trị viên' : 'Khách hàng'}</small>
+                <small>{getRoleLabel()}</small>
               </div>
               <button onClick={handleLogout} className="btn-logout">
                 Đăng xuất

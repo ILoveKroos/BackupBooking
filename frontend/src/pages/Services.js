@@ -5,30 +5,71 @@ import serviceService from '../services/serviceService';
 import { formatDurationLabel, formatVnd } from '../utils/formatters';
 import './Services.css';
 
+const FALLBACK_SERVICE_IMAGE =
+  'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1200&q=80';
+
+const normalizeText = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const getCategoryKey = (category) => {
+  const key = normalizeText(category);
+
+  if (key.includes('hair') || key.includes('toc')) return 'toc';
+  if (key.includes('nail') || key.includes('mong')) return 'mong';
+  if (key.includes('massage')) return 'massage';
+  if (key.includes('facial') || key.includes('skin') || key.includes('cham soc da')) return 'da';
+  if (
+    key.includes('lash') ||
+    key.includes('brow') ||
+    key.includes('long may') ||
+    key.includes('chan may') ||
+    key.includes('mi & may') ||
+    key.includes('mi va may')
+  ) {
+    return 'mi-may';
+  }
+  if (key.includes('makeup') || key.includes('trang diem')) return 'trang-diem';
+
+  return key || 'khac';
+};
+
+const getCategoryLabel = (category) => {
+  const key = getCategoryKey(category);
+
+  if (key === 'toc') return 'Tóc';
+  if (key === 'mong') return 'Móng';
+  if (key === 'massage') return 'Massage';
+  if (key === 'da') return 'Chăm sóc da';
+  if (key === 'mi-may') return 'Mi & Mày';
+  if (key === 'trang-diem') return 'Trang điểm';
+
+  return category || 'Dịch vụ làm đẹp';
+};
+
 const getCollectionLabel = (category) => {
-  const key = (category || '').toLowerCase();
+  const key = getCategoryKey(category);
 
-  if (key.includes('hair') || key.includes('toc') || key.includes('tóc')) {
-    return 'Moon Signature';
+  if (key === 'toc') return 'Gói nổi bật';
+  if (key === 'mi-may') return 'Mi & Mày';
+  if (key === 'mong') return 'Nail';
+  if (key === 'da') return 'Chăm sóc da';
+  if (key === 'massage') return 'Massage phục hồi';
+  if (key === 'trang-diem') return 'Trang điểm chuyên nghiệp';
+
+  return 'Đề xuất';
+};
+
+const getServiceImage = (service) => {
+  const imageUrl = service?.image_url;
+
+  if (typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+    return imageUrl.trim();
   }
 
-  if (key.includes('lash') || key.includes('brow')) {
-    return 'Lash & Brow Atelier';
-  }
-
-  if (key.includes('nail')) {
-    return 'Nail Studio';
-  }
-
-  if (key.includes('facial') || key.includes('skin')) {
-    return 'Skin Ritual';
-  }
-
-  if (key.includes('massage')) {
-    return 'Body Recovery';
-  }
-
-  return 'Boutique Pick';
+  return FALLBACK_SERVICE_IMAGE;
 };
 
 function Services() {
@@ -69,23 +110,23 @@ function Services() {
   }, []);
 
   const categories = useMemo(() => {
-    const list = services
+    const normalizedCategories = services
       .map((service) => service.category)
-      .filter((category) => typeof category === 'string' && category.trim() !== '');
+      .filter((category) => typeof category === 'string' && category.trim() !== '')
+      .map((category) => ({
+        key: getCategoryKey(category),
+        label: getCategoryLabel(category)
+      }));
 
-    return ['all', ...new Set(list)];
-  }, [services]);
-
-  const priceSummary = useMemo(() => {
-    if (services.length === 0) {
-      return null;
+    const uniqueByKey = [];
+    const seen = new Set();
+    for (const category of normalizedCategories) {
+      if (seen.has(category.key)) continue;
+      seen.add(category.key);
+      uniqueByKey.push(category);
     }
 
-    const prices = services.map((service) => Number(service.price) || 0);
-    return {
-      min: Math.min(...prices),
-      max: Math.max(...prices)
-    };
+    return [{ key: 'all', label: 'Tất cả' }, ...uniqueByKey];
   }, [services]);
 
   useEffect(() => {
@@ -93,7 +134,7 @@ function Services() {
       return;
     }
 
-    if (!categories.includes(activeCategory)) {
+    if (!categories.some((item) => item.key === activeCategory)) {
       setActiveCategory('all');
     }
   }, [activeCategory, categories]);
@@ -115,8 +156,7 @@ function Services() {
         category.includes(normalizedQuery);
 
       const matchesCategory =
-        activeCategory === 'all' ||
-        (service.category || '').toLowerCase() === activeCategory.toLowerCase();
+        activeCategory === 'all' || getCategoryKey(service.category) === activeCategory;
 
       const matchesDuration =
         durationFilter === 'all' ||
@@ -206,10 +246,8 @@ function Services() {
       };
     }
 
-    return {
-      target: `/services/${serviceId}`,
-      label: 'Xem chi tiết'
-    };
+    // Admin/Staff không đặt lịch từ màn này.
+    return null;
   };
 
   if (loading) {
@@ -220,20 +258,12 @@ function Services() {
     <div className="services-marketplace">
       <section className="marketplace-hero">
         <div>
-          <span className="hero-kicker">FRESHA FLOW + MOON VIBE</span>
-          <h1>Khám phá dịch vụ với giá thực tế.</h1>
+          <span className="hero-kicker">PHONG CÁCH ĐẶT LỊCH NHANH</span>
+          <h1>Khám phá dịch vụ.</h1>
           <p>
             Giao diện tìm kiếm gọn, so sánh giá minh bạch và đặt lịch ngay
             khi thấy khung giờ phù hợp.
           </p>
-        </div>
-        <div className="hero-note">
-          <strong>
-            {priceSummary
-              ? `Giá từ ${formatVnd(priceSummary.min)} đến ${formatVnd(priceSummary.max)}`
-              : 'Giá đã cập nhật theo bảng dịch vụ thực tế.'}
-          </strong>
-          <small>{`${services.length} dịch vụ được đồng bộ trực tiếp từ cơ sở dữ liệu.`}</small>
         </div>
       </section>
 
@@ -286,12 +316,12 @@ function Services() {
           <div className="category-chips">
             {categories.map((category) => (
               <button
-                key={category}
+                key={category.key}
                 type="button"
-                className={activeCategory === category ? 'chip active' : 'chip'}
-                onClick={() => setActiveCategory(category)}
+                className={activeCategory === category.key ? 'chip active' : 'chip'}
+                onClick={() => setActiveCategory(category.key)}
               >
-                {category === 'all' ? 'Tất cả' : category}
+                {category.label}
               </button>
             ))}
           </div>
@@ -299,13 +329,6 @@ function Services() {
       </section>
 
       {error && <div className="alert alert-error">{error}</div>}
-
-      <section className="results-head">
-        <p>
-          Tìm thấy <strong>{filteredServices.length}</strong> dịch vụ
-          {preferredDate ? ` cho ngày ${preferredDate}` : ''}.
-        </p>
-      </section>
 
       {filteredServices.length === 0 ? (
         <div className="empty-state">
@@ -321,8 +344,22 @@ function Services() {
 
             return (
               <article key={service.id} className="service-card">
+                <div className="service-image-wrap">
+                  <img
+                    src={getServiceImage(service)}
+                    alt={service.name}
+                    className="service-image"
+                    loading="lazy"
+                    onError={(event) => {
+                      if (event.currentTarget.src !== FALLBACK_SERVICE_IMAGE) {
+                        event.currentTarget.src = FALLBACK_SERVICE_IMAGE;
+                      }
+                    }}
+                  />
+                </div>
+
                 <div className="service-badges">
-                  <span className="category-pill">{service.category || 'Beauty service'}</span>
+                  <span className="category-pill">{getCategoryLabel(service.category)}</span>
                   <span className="collection-pill">{getCollectionLabel(service.category)}</span>
                 </div>
 
@@ -345,9 +382,11 @@ function Services() {
                   <Link to={`/services/${service.id}`} className="btn-details">
                     Xem chi tiết
                   </Link>
-                  <Link to={bookingAction.target} className="btn-primary">
-                    {bookingAction.label}
-                  </Link>
+                  {bookingAction && (
+                    <Link to={bookingAction.target} className="btn-primary">
+                      {bookingAction.label}
+                    </Link>
+                  )}
                 </div>
               </article>
             );

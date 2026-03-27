@@ -1,24 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
-const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { verifyToken, verifyAdminOrStaff } = require('../middleware/authMiddleware');
+const {
+  validateCreateAppointment,
+  validateUpdateAppointmentStatus,
+  validateAddReview,
+  validateAppointmentId
+} = require('../middleware/validationMiddleware');
 
-// Tạo lịch hẹn mới (customer)
-router.post('/', verifyToken, appointmentController.createAppointment);
+// FIX 1: Add input validation to all appointment endpoints
 
-// Lấy lịch hẹn của user (customer)
+// Customer
+router.post('/', verifyToken, validateCreateAppointment, appointmentController.createAppointment);
 router.get('/my-bookings', verifyToken, appointmentController.getMyAppointments);
+router.put('/:id/cancel', verifyToken, validateAppointmentId, appointmentController.cancelAppointment);
+router.put('/:id/review', verifyToken, validateAppointmentId, validateAddReview, appointmentController.addStaffReview);
 
-// Hủy lịch hẹn (customer)
-router.put('/:id/cancel', verifyToken, appointmentController.cancelAppointment);
+// Admin + Staff
+router.get('/', verifyToken, verifyAdminOrStaff, appointmentController.getAllAppointments);
+router.get('/:id', verifyToken, verifyAdminOrStaff, validateAppointmentId, appointmentController.getAppointmentById);
 
-// Lấy tất cả lịch hẹn (admin)
-router.get('/', verifyToken, verifyAdmin, appointmentController.getAllAppointments);
-
-// Lấy lịch hẹn theo ID (admin)
-router.get('/:id', verifyToken, appointmentController.getAppointmentById);
-
-// Cập nhật trạng thái lịch hẹn (admin)
-router.put('/:id/status', verifyToken, verifyAdmin, appointmentController.updateAppointmentStatus);
+// FIX 3: Staff can only update their own appointments (authorization check in controller)
+router.put('/:id/status', verifyToken, verifyAdminOrStaff, validateAppointmentId, validateUpdateAppointmentStatus, appointmentController.updateAppointmentStatus);
 
 module.exports = router;

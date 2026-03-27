@@ -17,14 +17,18 @@ import ManageServices from './pages/admin/ManageServices';
 import ManageAppointments from './pages/admin/ManageAppointments';
 import Analytics from './pages/admin/Analytics';
 import ManageStaff from './pages/admin/ManageStaff';
+import ManageCustomers from './pages/admin/ManageCustomers';
 
 // Components
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ConsentBanner from './components/ConsentBanner';
+import { readUserLocation } from './utils/consent';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState(() => readUserLocation());
 
   useEffect(() => {
     const savedUser = authService.getUser();
@@ -55,7 +59,7 @@ function App() {
         <main className="main-content">
           <Routes>
             {/* Public routes */}
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Home userLocation={userLocation} />} />
             <Route path="/services" element={<Services />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} />
@@ -76,8 +80,16 @@ function App() {
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/services" element={<ManageServices />} />
                 <Route path="/admin/staff" element={<ManageStaff />} />
+                <Route path="/admin/customers" element={<ManageCustomers />} />
                 <Route path="/admin/appointments" element={<ManageAppointments />} />
                 <Route path="/admin/analytics" element={<Analytics />} />
+              </>
+            )}
+
+            {/* Staff routes */}
+            {user && user.role === 'staff' && (
+              <>
+                <Route path="/staff/customers" element={<ManageCustomers />} />
               </>
             )}
 
@@ -85,6 +97,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
+        <ConsentBanner onLocationChange={setUserLocation} />
         <Footer />
       </div>
     </Router>

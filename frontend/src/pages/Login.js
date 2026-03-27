@@ -23,7 +23,13 @@ function Login({ onLogin }) {
       authService.setUser(user);
       onLogin(user);
 
-      navigate(user.role === 'admin' ? '/admin/dashboard' : '/');
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (user.role === 'staff') {
+        navigate('/staff/customers');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại.');
     } finally {

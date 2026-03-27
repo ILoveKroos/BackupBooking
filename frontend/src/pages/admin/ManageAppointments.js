@@ -2,10 +2,18 @@ import React, { useEffect, useState } from 'react';
 import bookingService from '../../services/bookingService';
 import './ManageAppointments.css';
 
+const formatRating = (rating) => {
+  const safeRating = Number(rating);
+  if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
+    return '-';
+  }
+  return `${'★'.repeat(safeRating)}${'☆'.repeat(5 - safeRating)} (${safeRating}/5)`;
+};
+
 function ManageAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
@@ -34,9 +42,9 @@ function ManageAppointments() {
     }
   };
 
-  const filteredAppointments = appointments.filter((apt) => {
+  const filteredAppointments = appointments.filter((appointment) => {
     if (filter === 'all') return true;
-    return apt.status === filter;
+    return appointment.status === filter;
   });
 
   if (loading) {
@@ -46,8 +54,6 @@ function ManageAppointments() {
   return (
     <div className="manage-appointments">
       <h1>Quản lý lịch hẹn</h1>
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="filter-buttons">
         <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
@@ -84,22 +90,23 @@ function ManageAppointments() {
               <th>Ngày hẹn</th>
               <th>Giờ hẹn</th>
               <th>Trạng thái</th>
+              <th>Đánh giá NV</th>
               <th>Hành động</th>
             </tr>
           </thead>
           <tbody>
-            {filteredAppointments.map((apt) => (
-              <tr key={apt.id}>
-                <td>{apt.id}</td>
-                <td>{apt.customer_name}</td>
-                <td>{apt.service_name}</td>
-                <td>{apt.staff_name || 'Chưa chọn'}</td>
-                <td>{new Date(apt.appointment_date).toLocaleDateString('vi-VN')}</td>
-                <td>{apt.appointment_time}</td>
+            {filteredAppointments.map((appointment) => (
+              <tr key={appointment.id}>
+                <td>{appointment.id}</td>
+                <td>{appointment.customer_name}</td>
+                <td>{appointment.service_name}</td>
+                <td>{appointment.staff_name || 'Chưa chọn'}</td>
+                <td>{new Date(appointment.appointment_date).toLocaleDateString('vi-VN')}</td>
+                <td>{appointment.appointment_time}</td>
                 <td>
                   <select
-                    value={apt.status}
-                    onChange={(e) => handleStatusChange(apt.id, e.target.value)}
+                    value={appointment.status}
+                    onChange={(event) => handleStatusChange(appointment.id, event.target.value)}
                     className="status-select"
                   >
                     <option value="pending">Chờ xác nhận</option>
@@ -108,6 +115,7 @@ function ManageAppointments() {
                     <option value="cancelled">Đã hủy</option>
                   </select>
                 </td>
+                <td>{formatRating(appointment.staff_rating)}</td>
                 <td>
                   <button className="btn-secondary btn-small">Chi tiết</button>
                 </td>

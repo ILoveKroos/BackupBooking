@@ -16,8 +16,10 @@ function Booking() {
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [staffOptions, setStaffOptions] = useState([]);
-  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [allStaff, setAllStaff] = useState([]);
+  const [availableStaffIds, setAvailableStaffIds] = useState(() => new Set());
+  const [loadingStaffList, setLoadingStaffList] = useState(true);
+  const [loadingStaffAvailability, setLoadingStaffAvailability] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
@@ -55,15 +57,51 @@ function Booking() {
   useEffect(() => {
     let cancelled = false;
 
-    const fetchAvailableStaff = async () => {
+    const fetchBookableStaff = async () => {
+      try {
+        setLoadingStaffList(true);
+        const response = await staffService.getBookableStaff();
+        const nextStaff = response.data.data || [];
+
+        if (!cancelled) {
+          setAllStaff(nextStaff);
+          setAvailableStaffIds(new Set(nextStaff.map((staff) => String(staff.id))));
+          setStaffError('');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAllStaff([]);
+          setAvailableStaffIds(new Set());
+          setStaffError('Không thể tải danh sách nhân viên.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingStaffList(false);
+        }
+      }
+    };
+
+    fetchBookableStaff();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkAvailableStaff = async () => {
       if (!appointmentDate || !appointmentTime) {
-        setStaffOptions([]);
-        setSelectedStaffId('');
-        setStaffError('');
+        setAvailableStaffIds(new Set(allStaff.map((staff) => String(staff.id))));
         return;
       }
 
-      setLoadingStaff(true);
+      if (allStaff.length === 0) {
+        setAvailableStaffIds(new Set());
+        return;
+      }
+
+      setLoadingStaffAvailability(true);
       setStaffError('');
 
       try {
@@ -72,40 +110,58 @@ function Booking() {
           appointmentTime,
           serviceId
         );
-        const nextStaff = response.data.data || [];
+        const nextAvailableIds = new Set(
+          (response.data.data || []).map((staff) => String(staff.id))
+        );
 
         if (!cancelled) {
-          setStaffOptions(nextStaff);
+          setAvailableStaffIds(nextAvailableIds);
           setSelectedStaffId((prev) => {
             if (!prev) return '';
-            return nextStaff.some((staff) => String(staff.id) === String(prev)) ? prev : '';
+            return nextAvailableIds.has(String(prev)) ? prev : '';
           });
         }
       } catch (err) {
         if (!cancelled) {
-          setStaffOptions([]);
+          setAvailableStaffIds(new Set());
           setSelectedStaffId('');
-          setStaffError('Không thể tải danh sách nhân viên cho khung giờ này.');
+          setStaffError('Không thể kiểm tra lịch trống của nhân viên theo khung giờ này.');
         }
       } finally {
         if (!cancelled) {
-          setLoadingStaff(false);
+          setLoadingStaffAvailability(false);
         }
       }
     };
 
-    fetchAvailableStaff();
+    checkAvailableStaff();
     return () => {
       cancelled = true;
     };
-  }, [appointmentDate, appointmentTime, serviceId]);
+  }, [appointmentDate, appointmentTime, serviceId, allStaff]);
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  const staffOptions = useMemo(() => {
+    const shouldCheckAvailability = !!appointmentDate && !!appointmentTime;
+    return allStaff.map((staff) => {
+      const isAvailable = !shouldCheckAvailability || availableStaffIds.has(String(staff.id));
+      return {
+        ...staff,
+        isAvailable
+      };
+    });
+  }, [allStaff, appointmentDate, appointmentTime, availableStaffIds]);
+
   const selectedStaffName = useMemo(() => {
-    const selected = staffOptions.find((staff) => String(staff.id) === String(selectedStaffId));
+    const selected = allStaff.find((staff) => String(staff.id) === String(selectedStaffId));
     return selected ? selected.name : '';
-  }, [selectedStaffId, staffOptions]);
+  }, [selectedStaffId, allStaff]);
+
+  const availableStaffCount = useMemo(
+    () => staffOptions.filter((staff) => staff.isAvailable).length,
+    [staffOptions]
+  );
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -114,6 +170,14 @@ function Booking() {
 
     if (!appointmentDate || !appointmentTime || !selectedStaffId) {
       setError('Vui lòng chọn ngày, giờ và nhân viên trước khi đặt lịch.');
+      return;
+    }
+
+    const selectedOption = staffOptions.find(
+      (staff) => String(staff.id) === String(selectedStaffId)
+    );
+    if (!selectedOption || !selectedOption.isAvailable) {
+      setError('Nhân viên đã bận ở khung giờ này, vui lòng chọn nhân viên khác.');
       return;
     }
 
@@ -199,25 +263,40 @@ function Booking() {
             <select
               value={selectedStaffId}
               onChange={(event) => setSelectedStaffId(event.target.value)}
-              disabled={!appointmentDate || !appointmentTime || loadingStaff}
+              disabled={loadingStaffList || allStaff.length === 0}
               required
             >
               <option value="">
-                {!appointmentDate || !appointmentTime
-                  ? 'Chọn ngày và giờ trước'
-                  : loadingStaff
-                    ? 'Đang tải nhân viên...'
-                    : staffOptions.length === 0
-                      ? 'Không còn nhân viên trong giờ này'
-                      : 'Chọn nhân viên'}
+                {loadingStaffList
+                  ? 'Đang tải danh sách nhân viên...'
+                  : allStaff.length === 0
+                    ? 'Chưa có nhân viên hoạt động'
+                    : loadingStaffAvailability
+                      ? 'Đang kiểm tra lịch trống...'
+                      : availableStaffCount === 0
+                        ? 'Không còn nhân viên trống trong giờ này'
+                        : 'Chọn nhân viên'}
               </option>
               {staffOptions.map((staff) => (
-                <option key={staff.id} value={staff.id}>
+                <option
+                  key={staff.id}
+                  value={staff.id}
+                  disabled={!!appointmentDate && !!appointmentTime && !staff.isAvailable}
+                >
                   {staff.name}
+                  {!!appointmentDate && !!appointmentTime && !staff.isAvailable ? ' - Đang bận' : ''}
                 </option>
               ))}
             </select>
             {staffError && <small className="field-error">{staffError}</small>}
+            {!staffError && allStaff.length > 0 && !appointmentDate && !appointmentTime && (
+              <small className="field-hint">Chọn ngày và giờ để hệ thống lọc nhân viên đang trống.</small>
+            )}
+            {!staffError && !!appointmentDate && !!appointmentTime && !loadingStaffAvailability && (
+              <small className="field-hint">
+                Có {availableStaffCount}/{allStaff.length} nhân viên đang trống ở khung giờ này.
+              </small>
+            )}
           </div>
 
           <div className="form-group">

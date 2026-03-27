@@ -13,6 +13,10 @@
   margin-bottom: 20px;
 }
 
+.manage-services .alert {
+  margin-bottom: 16px;
+}
+
 .form-card {
   background: white;
   padding: 20px;
@@ -63,6 +67,16 @@ table td {
   border-bottom: 1px solid #eee;
 }
 
+.service-thumb {
+  width: 72px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
 table tbody tr:hover {
   background-color: #f9f9f9;
 }
@@ -87,6 +101,62 @@ table tbody tr:hover {
 .btn-small {
   padding: 6px 12px;
   font-size: 12px;
+}
+
+.empty-cell {
+  text-align: center;
+  color: #6b7280;
+}
+
+.price-edit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-input {
+  width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.price-suffix {
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-edit {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-edit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-neutral {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-neutral:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

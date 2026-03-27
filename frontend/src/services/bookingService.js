@@ -31,6 +31,13 @@ const bookingService = {
 
   cancelBooking: (id) => {
     return api.put(`/bookings/${id}/cancel`);
+  },
+
+  reviewBooking: (id, rating, review) => {
+    return api.put(`/bookings/${id}/review`, {
+      rating,
+      review
+    });
   }
 };
 

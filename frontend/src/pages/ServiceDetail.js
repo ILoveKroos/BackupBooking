@@ -5,6 +5,9 @@ import serviceService from '../services/serviceService';
 import { formatDurationLabel, formatVnd } from '../utils/formatters';
 import './ServiceDetail.css';
 
+const FALLBACK_SERVICE_IMAGE =
+  'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1200&q=80';
+
 function ServiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -68,10 +71,28 @@ function ServiceDetail() {
   const price = Number(service.price) || 0;
   const duration = Number(service.duration) || 0;
   const isActive = service.status === 'active';
+  const serviceImage =
+    typeof service.image_url === 'string' && service.image_url.trim() !== ''
+      ? service.image_url.trim()
+      : FALLBACK_SERVICE_IMAGE;
 
   return (
     <div className="service-detail-page">
       <section className="service-main">
+        <div className="service-detail-image-wrap">
+          <img
+            src={serviceImage}
+            alt={service.name}
+            className="service-detail-image"
+            loading="lazy"
+            onError={(event) => {
+              if (event.currentTarget.src !== FALLBACK_SERVICE_IMAGE) {
+                event.currentTarget.src = FALLBACK_SERVICE_IMAGE;
+              }
+            }}
+          />
+        </div>
+
         <div className="service-title-row">
           <span className="badge">CHI TIẾT DỊCH VỤ</span>
           <h1>{service.name}</h1>

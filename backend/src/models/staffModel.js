@@ -25,6 +25,20 @@ const getAllStaff = (callback) => {
   });
 };
 
+const getBookableStaff = (callback) => {
+  const query = `
+    SELECT id, name, email, phone
+    FROM users
+    WHERE role = 'staff' AND is_active = 1
+    ORDER BY name ASC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
+
 const getStaffById = (id, callback) => {
   const query = `
     SELECT id, name, email, phone, role, is_active, created_at
@@ -112,6 +126,7 @@ const getAvailableStaff = (appointmentDate, appointmentTime, callback) => {
 
 module.exports = {
   getAllStaff,
+  getBookableStaff,
   getStaffById,
   createStaff,
   updateStaff,

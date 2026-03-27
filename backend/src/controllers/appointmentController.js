@@ -110,16 +110,56 @@ exports.getAppointmentById = (req, res) => {
 exports.updateAppointmentStatus = (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
+  const user_id = req.user.id;
+  const user_role = req.user.role;
 
   if (!status) {
-    return res.status(400).json({ message: 'Vui lòng cung cấp trạng thái' });
+    return res.status(400).json({ 
+      success: false,
+      message: 'Vui lòng cung cấp trạng thái' 
+    });
   }
 
-  appointmentModel.updateAppointmentStatus(id, status, (err) => {
+  // FIX 3: Check staff ownership - Staff chỉ có thể update lịch của họ
+  appointmentModel.getAppointmentById(id, (err, appointment) => {
     if (err) {
-      return res.status(500).json({ message: 'lỗi server', error: err });
+      console.error('[UPDATE_APPOINTMENT_ERROR]', err);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Lỗi server' 
+      });
     }
-    res.status(200).json({ success: true, message: 'Cập nhật trạng thái thành công' });
+
+    if (!appointment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Lịch hẹn không tồn tại' 
+      });
+    }
+
+    // Authorization check: 
+    // - Admin có thể update bất kỳ lịch nào
+    // - Staff chỉ có thể update lịch mà họ được assign
+    if (user_role === 'staff' && Number(appointment.staff_id) !== Number(user_id)) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Bạn không có quyền cập nhật lịch này (chỉ có thể cập nhật lịch được assign)' 
+      });
+    }
+
+    appointmentModel.updateAppointmentStatus(id, status, (updateErr) => {
+      if (updateErr) {
+        console.error('[UPDATE_APPOINTMENT_STATUS_ERROR]', updateErr);
+        return res.status(500).json({ 
+          success: false,
+          message: 'Lỗi server khi cập nhật trạng thái' 
+        });
+      }
+      res.status(200).json({ 
+        success: true, 
+        message: 'Cập nhật trạng thái thành công' 
+      });
+    });
   });
 };
 
@@ -142,5 +182,30 @@ exports.cancelAppointment = (req, res) => {
       }
       res.status(200).json({ success: true, message: 'Hủy lịch thành công' });
     });
+  });
+};
+
+exports.addStaffReview = (req, res) => {
+  const { id } = req.params;
+  const user_id = req.user.id;
+  const { rating, review } = req.body;
+
+  const parsedRating = Number(rating);
+  if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+    return res.status(400).json({ message: 'Điểm đánh giá phải từ 1 đến 5' });
+  }
+
+  appointmentModel.addStaffReview(id, user_id, parsedRating, review || '', (err, result) => {
+    if (err) {
+      return res.status(500).json({ message: 'Lỗi server', error: err });
+    }
+
+    if (!result || result.affectedRows === 0) {
+      return res.status(400).json({
+        message: 'Chỉ có thể đánh giá lịch đã hoàn thành và chưa được đánh giá'
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'Đánh giá nhân viên thành công' });
   });
 };
