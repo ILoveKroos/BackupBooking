@@ -20,18 +20,43 @@ const staffService = {
     return api.get(`/staff/available?${params.toString()}`);
   },
 
-  createStaff: (name, email, password, phone, is_active = true) => {
+  createStaff: (name, email, password, phone, staff_role_id, is_active = true) => {
     return api.post('/staff', {
       name,
       email,
       password,
       phone,
+      staff_role_id,
       is_active
     });
   },
 
+  getAllStaffRoles: () => {
+    return api.get('/staff/roles');
+  },
+
+  createStaffRole: (role_name) => {
+    return api.post('/staff/roles', { role_name });
+  },
+
   updateStaff: (id, payload) => {
     return api.put(`/staff/${id}`, payload);
+  },
+
+  getStaffWeeklyAvailability: (id) => {
+    return api.get(`/staff/${id}/weekly-availability`);
+  },
+
+  replaceStaffWeeklyAvailability: (id, slots) => {
+    return api.put(`/staff/${id}/weekly-availability`, { slots });
+  },
+
+  requestLeave: (leaveData) => {
+    return api.post('/staff/leave-request', leaveData);
+  },
+
+  getMyLeaveRequests: () => {
+    return api.get('/staff/my-leave-requests');
   }
 };
 

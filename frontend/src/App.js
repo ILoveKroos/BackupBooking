@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import authService from './services/authService';
 import './App.css';
 
-// Pages
 import Home from './pages/Home';
 import Services from './pages/Services';
 import ServiceDetail from './pages/ServiceDetail';
@@ -18,8 +17,8 @@ import ManageAppointments from './pages/admin/ManageAppointments';
 import Analytics from './pages/admin/Analytics';
 import ManageStaff from './pages/admin/ManageStaff';
 import ManageCustomers from './pages/admin/ManageCustomers';
+import ServiceStaffDashboard from './pages/staff/ServiceStaffDashboard';
 
-// Components
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ConsentBanner from './components/ConsentBanner';
@@ -32,11 +31,19 @@ function App() {
 
   useEffect(() => {
     const savedUser = authService.getUser();
-    if (savedUser) {
+    const savedToken = authService.getToken();
+
+    if (savedUser && savedToken) {
       setUser(savedUser);
+    } else {
+      authService.logout();
     }
+
     setLoading(false);
   }, []);
+
+  const isAuthenticated = Boolean(user && authService.getToken());
+  const authenticatedUser = isAuthenticated ? user : null;
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -55,18 +62,22 @@ function App() {
   return (
     <Router>
       <div className="app">
-        <Header user={user} onLogout={handleLogout} />
+        <Header user={authenticatedUser} onLogout={handleLogout} />
         <main className="main-content">
           <Routes>
-            {/* Public routes */}
             <Route path="/" element={<Home userLocation={userLocation} />} />
             <Route path="/services" element={<Services />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
-            <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} />
-            <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+            <Route
+              path="/login"
+              element={isAuthenticated ? <Navigate to="/" /> : <Login onLogin={handleLogin} />}
+            />
+            <Route
+              path="/register"
+              element={isAuthenticated ? <Navigate to="/" /> : <Register />}
+            />
 
-            {/* Customer routes */}
-            {user && user.role === 'customer' && (
+            {isAuthenticated && user.role === 'customer' && (
               <>
                 <Route path="/booking/:serviceId" element={<Booking />} />
                 <Route path="/my-appointments" element={<MyAppointments />} />
@@ -74,8 +85,7 @@ function App() {
               </>
             )}
 
-            {/* Admin routes */}
-            {user && user.role === 'admin' && (
+            {isAuthenticated && user.role === 'admin' && (
               <>
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/services" element={<ManageServices />} />
@@ -86,14 +96,21 @@ function App() {
               </>
             )}
 
-            {/* Staff routes */}
-            {user && user.role === 'staff' && (
+            {isAuthenticated && user.role === 'staff' && (
               <>
-                <Route path="/staff/customers" element={<ManageCustomers />} />
+                {(user.staff_role_name || '').trim().toLowerCase() === 'thu ngân' ? (
+                  <>
+                    <Route path="/staff/dashboard" element={<ManageAppointments />} />
+                    <Route path="/staff/customers" element={<ManageCustomers />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/staff/dashboard" element={<ServiceStaffDashboard />} />
+                  </>
+                )}
               </>
             )}
 
-            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

@@ -13,7 +13,11 @@ const serviceService = {
 
   updateServicePrice: (id, price) => api.put(`/services/${id}/price`, { price }),
 
-  deleteService: (id) => api.delete(`/services/${id}`)
+  deleteService: (id) => api.delete(`/services/${id}`),
+
+  createCategory: (categoryData) => api.post('/services/categories', categoryData),
+  
+  getAllCategories: () => api.get('/services/categories')
 };
 
 export default serviceService;

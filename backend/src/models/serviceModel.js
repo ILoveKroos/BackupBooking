@@ -69,11 +69,39 @@ const deleteService = (id, callback) => {
   });
 };
 
+const createCategory = (categoryData, callback) => {
+  const { category_name } = categoryData;
+  const query = `
+    INSERT INTO service_category (category_name)
+    VALUES (?)
+  `;
+
+  db.query(query, [category_name], (err, result) => {
+    if (err) return callback(err);
+    callback(null, result);
+  });
+};
+
+const getAllCategories = (callback) => {
+  const query = `
+    SELECT id, category_name 
+    FROM service_category 
+    ORDER BY category_name ASC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
+
 module.exports = {
   createService,
   getAllServices,
   getServiceById,
   updateService,
   updateServicePrice,
-  deleteService
+  deleteService,
+  createCategory,
+  getAllCategories
 };

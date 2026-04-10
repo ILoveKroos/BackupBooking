@@ -9,6 +9,8 @@ router.post('/', verifyToken, verifyAdmin, serviceController.createService);
 router.put('/:id', verifyToken, verifyAdmin, serviceController.updateService);
 router.put('/:id/price', verifyToken, verifyAdmin, serviceController.updateServicePrice);
 router.delete('/:id', verifyToken, verifyAdmin, serviceController.deleteService);
+router.post('/categories', verifyToken, verifyAdmin, serviceController.createCategory);
+router.get('/categories', serviceController.getAllCategories);
 
 // Public routes
 router.get('/', serviceController.getAllServices);
