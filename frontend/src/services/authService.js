@@ -69,40 +69,57 @@ const authService = {
   },
 
   // Lưu token
-  setToken: (token) => {
+  setToken: (token, rememberMe = true) => {
     if (token) {
-      localStorage.setItem('token', token);
+      if (rememberMe) {
+        localStorage.setItem('token', token);
+        sessionStorage.removeItem('token');
+      } else {
+        sessionStorage.setItem('token', token);
+        localStorage.removeItem('token');
+      }
       return;
     }
 
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
   },
 
   // Lấy token
   getToken: () => {
-    return localStorage.getItem('token');
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
   },
 
   // Xóa token
   removeToken: () => {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
   },
 
-  // Lấy user từ localStorage
+  // Lấy user từ localStorage hoặc sessionStorage
   getUser: () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem('user') || sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
 
   // Lưu user
-  setUser: (user) => {
-    localStorage.setItem('user', JSON.stringify(user));
+  setUser: (user, rememberMe = true) => {
+    const userStr = JSON.stringify(user);
+    if (rememberMe) {
+      localStorage.setItem('user', userStr);
+      sessionStorage.removeItem('user');
+    } else {
+      sessionStorage.setItem('user', userStr);
+      localStorage.removeItem('user');
+    }
   },
 
   // Logout
   logout: () => {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
   }
 };
 

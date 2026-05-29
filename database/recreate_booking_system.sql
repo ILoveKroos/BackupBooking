@@ -152,7 +152,7 @@ CREATE TABLE vouchers (
   discount_percent INT NULL,
   min_order_value DECIMAL(10,2) NOT NULL DEFAULT 0,
   max_discount_amount DECIMAL(10,2) NULL,
-  customer_type ENUM('regular', 'vip', 'both') NOT NULL DEFAULT 'both',
+  customer_type ENUM('regular', 'vip', 'vvip', 'vvvip', 'both') NOT NULL DEFAULT 'both',
   description TEXT NULL,
   issued_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expiry_date DATETIME NOT NULL,
@@ -180,59 +180,29 @@ CREATE TABLE voucher_assignments (
   last_used_date TIMESTAMP NULL,
   is_used TINYINT(1) NOT NULL DEFAULT 0,
   status ENUM('active', 'used', 'expired') NOT NULL DEFAULT 'active',
+  source ENUM('admin', 'system', 'bot') NOT NULL DEFAULT 'admin',
+  reason VARCHAR(255) NULL,
+  confidence_score FLOAT NULL,
+  shown_date TIMESTAMP NULL,
+  clicked TINYINT(1) NOT NULL DEFAULT 0,
+  applied TINYINT(1) NOT NULL DEFAULT 0,
+  last_appointment_id INT NULL,
+  last_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_voucher_customer (voucher_id, customer_id),
   INDEX idx_voucher_assignments_customer (customer_id),
   INDEX idx_voucher_assignments_voucher (voucher_id),
   INDEX idx_voucher_assignments_status (status),
+  INDEX idx_voucher_assignments_source (source),
+  INDEX idx_voucher_assignments_shown_date (shown_date),
   CONSTRAINT fk_voucher_assignments_voucher
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
   CONSTRAINT fk_voucher_assignments_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE voucher_usage_history (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  voucher_id INT NOT NULL,
-  assignment_id INT NULL,
-  customer_id INT NOT NULL,
-  appointment_id INT NULL,
-  discount_applied DECIMAL(10,2) NOT NULL,
-  used_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_voucher_usage_customer (customer_id),
-  INDEX idx_voucher_usage_voucher (voucher_id),
-  INDEX idx_voucher_usage_appointment (appointment_id),
-  INDEX idx_voucher_usage_used_date (used_date),
-  CONSTRAINT fk_voucher_usage_voucher
-    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_usage_assignment
-    FOREIGN KEY (assignment_id) REFERENCES voucher_assignments(id) ON DELETE SET NULL,
-  CONSTRAINT fk_voucher_usage_customer
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_usage_appointment
-    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE voucher_suggestions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  customer_id INT NOT NULL,
-  voucher_id INT NOT NULL,
-  reason VARCHAR(255) NULL,
-  confidence_score FLOAT NULL,
-  shown_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  clicked TINYINT(1) NOT NULL DEFAULT 0,
-  applied TINYINT(1) NOT NULL DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_voucher_suggestions_customer (customer_id),
-  INDEX idx_voucher_suggestions_voucher (voucher_id),
-  INDEX idx_voucher_suggestions_shown_date (shown_date),
-  INDEX idx_voucher_suggestions_reason (reason),
-  CONSTRAINT fk_voucher_suggestions_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_suggestions_voucher
-    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
+  CONSTRAINT fk_voucher_assignments_last_appointment
+    FOREIGN KEY (last_appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE chat_conversations (
@@ -323,7 +293,7 @@ CREATE TABLE chat_bot_responses (
 
 INSERT INTO staff_role (id, role_name, description)
 VALUES
-  (1, 'Kỹ thuật viên', 'Nhân viên thực hiện dịch vụ cho khách hàng'),
+  (1, 'Nhân viên', 'Nhân viên thực hiện dịch vụ cho khách hàng'),
   (2, 'Thu ngân', 'Nhân viên xử lý thanh toán và hỗ trợ quầy'),
   (3, 'Quản lý', 'Nhân viên quản lý vận hành salon');
 
@@ -379,13 +349,13 @@ VALUES
 
 INSERT INTO staff_weekly_availability (staff_id, day_of_week, start_time, end_time)
 VALUES
-  (3, 0, '08:00:00', '18:00:00'),
-  (3, 1, '08:00:00', '18:00:00'),
-  (3, 2, '08:00:00', '18:00:00'),
-  (3, 3, '08:00:00', '18:00:00'),
-  (3, 4, '08:00:00', '18:00:00'),
-  (3, 5, '08:00:00', '17:00:00'),
-  (3, 6, '09:00:00', '16:00:00');
+  (3, 0, '08:00:00', '16:00:00'),
+  (3, 1, '08:00:00', '16:00:00'),
+  (3, 2, '08:00:00', '16:00:00'),
+  (3, 3, '08:00:00', '16:00:00'),
+  (3, 4, '08:00:00', '16:00:00'),
+  (3, 5, '07:00:00', '15:00:00'),
+  (3, 6, '07:00:00', '15:00:00');
 
 INSERT INTO chat_suggestions (category, title, description, icon, action_type, action_data, priority)
 VALUES
@@ -395,12 +365,76 @@ VALUES
 
 INSERT INTO chat_faq (question, answer, category, keywords)
 VALUES
-  ('Salon mở cửa lúc mấy giờ?', 'Salon mở cửa từ 08:00 đến 18:00 vào ngày thường, cuối tuần có thể thay đổi theo lịch nhân viên.', 'Giờ làm việc', 'giờ mở cửa, thời gian, lịch làm việc'),
+  ('Salon mở cửa lúc mấy giờ?', 'Thứ 2 đến Thứ 6: 08:00-21:30. Thứ 7 và Chủ nhật: 07:00-23:00. Ca làm được chia sáng/tối theo lịch nhân viên.', 'Giờ làm việc', 'giờ mở cửa, thời gian, lịch làm việc'),
   ('Tôi có thể đặt lịch online không?', 'Bạn có thể đăng nhập tài khoản khách hàng, chọn dịch vụ, ngày giờ và nhân viên còn trống để đặt lịch.', 'Đặt lịch', 'đặt lịch, online, booking'),
   ('Salon hỗ trợ thanh toán thế nào?', 'Salon hỗ trợ thanh toán tiền mặt, chuyển khoản, VNPay và VietQR tuỳ cấu hình hệ thống.', 'Thanh toán', 'thanh toán, tiền mặt, vnpay, vietqr');
 
 INSERT INTO chat_bot_responses (trigger_keyword, response_text, response_type, confidence_score)
 VALUES
   ('xin chào|hello|hi', 'Xin chào! Mình có thể hỗ trợ bạn xem dịch vụ, đặt lịch hoặc kiểm tra thông tin thanh toán.', 'text', 0.95),
-  ('giờ làm việc|mở cửa|đóng cửa', 'Salon mở cửa từ 08:00 đến 18:00 vào ngày thường. Bạn muốn đặt lịch khung giờ nào?', 'suggestion', 0.90),
+  ('giờ làm việc|mở cửa|đóng cửa', 'Salon mở cửa Thứ 2-Thứ 6 từ 08:00-21:30, Thứ 7-Chủ nhật từ 07:00-23:00. Bạn muốn đặt lịch khung giờ nào?', 'suggestion', 0.90),
   ('đặt lịch|booking|hẹn', 'Bạn hãy chọn dịch vụ trước, sau đó hệ thống sẽ gợi ý nhân viên còn trống.', 'suggestion', 0.90);
+
+-- ===== APPOINTMENT SEED DATA (cho xu hướng) =====
+INSERT INTO appointments (user_id, service_id, staff_id, appointment_date, appointment_time, end_time, status, total_amount, staff_rating, created_at)
+VALUES
+  -- Tóc: Gội tạo kiểu (service_id=1) - 8 lượt
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 3 DAY), '09:00:00', '09:30:00', 'completed', 280000, 5, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 7 DAY), '10:00:00', '10:30:00', 'completed', 280000, 4, DATE_SUB(NOW(), INTERVAL 7 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 12 DAY), '14:00:00', '14:30:00', 'completed', 280000, 5, DATE_SUB(NOW(), INTERVAL 12 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 18 DAY), '11:00:00', '11:30:00', 'completed', 280000, 5, DATE_SUB(NOW(), INTERVAL 18 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 22 DAY), '15:00:00', '15:30:00', 'completed', 280000, 4, DATE_SUB(NOW(), INTERVAL 22 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 25 DAY), '09:30:00', '10:00:00', 'completed', 280000, 5, DATE_SUB(NOW(), INTERVAL 25 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 28 DAY), '16:00:00', '16:30:00', 'completed', 280000, 4, DATE_SUB(NOW(), INTERVAL 28 DAY)),
+  (4, 1, 3, DATE_SUB(CURDATE(), INTERVAL 1 DAY), '10:00:00', '10:30:00', 'confirmed', 280000, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+
+  -- Tóc: Cắt tóc tạo kiểu cao cấp (service_id=2) - 6 lượt
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 5 DAY), '13:00:00', '14:00:00', 'completed', 450000, 5, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 10 DAY), '09:00:00', '10:00:00', 'completed', 450000, 5, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 15 DAY), '14:00:00', '15:00:00', 'completed', 450000, 4, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 20 DAY), '10:00:00', '11:00:00', 'completed', 450000, 5, DATE_SUB(NOW(), INTERVAL 20 DAY)),
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 26 DAY), '15:00:00', '16:00:00', 'completed', 450000, 5, DATE_SUB(NOW(), INTERVAL 26 DAY)),
+  (4, 2, 3, DATE_SUB(CURDATE(), INTERVAL 2 DAY), '11:00:00', '12:00:00', 'pending', 450000, NULL, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+
+  -- Tóc: Nhuộm tóc cao cấp (service_id=3) - 4 lượt
+  (4, 3, 3, DATE_SUB(CURDATE(), INTERVAL 8 DAY), '09:00:00', '11:00:00', 'completed', 950000, 5, DATE_SUB(NOW(), INTERVAL 8 DAY)),
+  (4, 3, 3, DATE_SUB(CURDATE(), INTERVAL 16 DAY), '13:00:00', '15:00:00', 'completed', 950000, 4, DATE_SUB(NOW(), INTERVAL 16 DAY)),
+  (4, 3, 3, DATE_SUB(CURDATE(), INTERVAL 24 DAY), '10:00:00', '12:00:00', 'completed', 950000, 5, DATE_SUB(NOW(), INTERVAL 24 DAY)),
+  (4, 3, 3, DATE_SUB(CURDATE(), INTERVAL 4 DAY), '14:00:00', '16:00:00', 'confirmed', 950000, NULL, DATE_SUB(NOW(), INTERVAL 4 DAY)),
+
+  -- Móng: Sơn gel chăm sóc móng (service_id=4) - 7 lượt
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 2 DAY), '10:00:00', '10:45:00', 'completed', 320000, 5, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 6 DAY), '14:00:00', '14:45:00', 'completed', 320000, 5, DATE_SUB(NOW(), INTERVAL 6 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 11 DAY), '09:00:00', '09:45:00', 'completed', 320000, 4, DATE_SUB(NOW(), INTERVAL 11 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 17 DAY), '15:00:00', '15:45:00', 'completed', 320000, 5, DATE_SUB(NOW(), INTERVAL 17 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 21 DAY), '11:00:00', '11:45:00', 'completed', 320000, 4, DATE_SUB(NOW(), INTERVAL 21 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 27 DAY), '13:00:00', '13:45:00', 'completed', 320000, 5, DATE_SUB(NOW(), INTERVAL 27 DAY)),
+  (4, 4, 3, DATE_SUB(CURDATE(), INTERVAL 1 DAY), '14:00:00', '14:45:00', 'pending', 320000, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+
+  -- Mi & Mày: Nâng mi và nhuộm mi (service_id=5) - 5 lượt
+  (4, 5, 3, DATE_SUB(CURDATE(), INTERVAL 4 DAY), '10:00:00', '11:15:00', 'completed', 520000, 5, DATE_SUB(NOW(), INTERVAL 4 DAY)),
+  (4, 5, 3, DATE_SUB(CURDATE(), INTERVAL 9 DAY), '14:00:00', '15:15:00', 'completed', 520000, 5, DATE_SUB(NOW(), INTERVAL 9 DAY)),
+  (4, 5, 3, DATE_SUB(CURDATE(), INTERVAL 14 DAY), '09:00:00', '10:15:00', 'completed', 520000, 4, DATE_SUB(NOW(), INTERVAL 14 DAY)),
+  (4, 5, 3, DATE_SUB(CURDATE(), INTERVAL 19 DAY), '13:00:00', '14:15:00', 'completed', 520000, 5, DATE_SUB(NOW(), INTERVAL 19 DAY)),
+  (4, 5, 3, DATE_SUB(CURDATE(), INTERVAL 3 DAY), '15:00:00', '16:15:00', 'confirmed', 520000, NULL, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+
+  -- Chăm sóc da: Chăm sóc da cấp ẩm (service_id=6) - 5 lượt
+  (4, 6, 3, DATE_SUB(CURDATE(), INTERVAL 3 DAY), '13:00:00', '14:15:00', 'completed', 680000, 5, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+  (4, 6, 3, DATE_SUB(CURDATE(), INTERVAL 8 DAY), '15:00:00', '16:15:00', 'completed', 680000, 5, DATE_SUB(NOW(), INTERVAL 8 DAY)),
+  (4, 6, 3, DATE_SUB(CURDATE(), INTERVAL 13 DAY), '10:00:00', '11:15:00', 'completed', 680000, 4, DATE_SUB(NOW(), INTERVAL 13 DAY)),
+  (4, 6, 3, DATE_SUB(CURDATE(), INTERVAL 23 DAY), '09:00:00', '10:15:00', 'completed', 680000, 5, DATE_SUB(NOW(), INTERVAL 23 DAY)),
+  (4, 6, 3, DATE_SUB(CURDATE(), INTERVAL 1 DAY), '11:00:00', '12:15:00', 'pending', 680000, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+
+  -- Massage: Massage mô sâu (service_id=7) - 6 lượt
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 2 DAY), '09:00:00', '10:30:00', 'completed', 750000, 5, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 7 DAY), '14:00:00', '15:30:00', 'completed', 750000, 5, DATE_SUB(NOW(), INTERVAL 7 DAY)),
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 12 DAY), '10:00:00', '11:30:00', 'completed', 750000, 4, DATE_SUB(NOW(), INTERVAL 12 DAY)),
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 19 DAY), '15:00:00', '16:30:00', 'completed', 750000, 5, DATE_SUB(NOW(), INTERVAL 19 DAY)),
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 25 DAY), '13:00:00', '14:30:00', 'completed', 750000, 5, DATE_SUB(NOW(), INTERVAL 25 DAY)),
+  (4, 7, 3, DATE_SUB(CURDATE(), INTERVAL 5 DAY), '11:00:00', '12:30:00', 'confirmed', 750000, NULL, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+
+  -- Trang điểm: Trang điểm dự tiệc (service_id=8) - 3 lượt
+  (4, 8, 3, DATE_SUB(CURDATE(), INTERVAL 6 DAY), '09:00:00', '10:30:00', 'completed', 850000, 5, DATE_SUB(NOW(), INTERVAL 6 DAY)),
+  (4, 8, 3, DATE_SUB(CURDATE(), INTERVAL 15 DAY), '13:00:00', '14:30:00', 'completed', 850000, 5, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+  (4, 8, 3, DATE_SUB(CURDATE(), INTERVAL 1 DAY), '10:00:00', '11:30:00', 'pending', 850000, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY));
+

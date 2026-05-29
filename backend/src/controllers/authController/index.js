@@ -51,6 +51,7 @@ const respondWithLoginSuccess = (res, user) => {
       phone: user.phone,
       avatar: user.avatar || null,
       role: user.role,
+      created_at: user.created_at || null,
       ...(user.role === 'staff' ? { staff_role_name: user.staff_role_name || null } : {})
     }
   });
@@ -209,7 +210,7 @@ exports.googleLogin = async (req, res) => {
             console.error('[GOOGLE_LOGIN_CREATE_ERROR]', createErr);
             return res.status(500).json({ success: false, message: 'Lỗi server khi tạo tài khoản từ Google' });
           }
-          return respondWithLoginSuccess(res, { id: result.insertId, name, email, phone: '', role: 'customer' });
+          return respondWithLoginSuccess(res, { id: result.insertId, name, email, phone: '', role: 'customer', created_at: new Date().toISOString() });
         }
       );
     });
@@ -288,7 +289,7 @@ exports.zaloLogin = async (req, res) => {
             console.error('[ZALO_LOGIN_CREATE_ERROR]', createErr);
             return res.status(500).json({ success: false, message: 'Lỗi server khi tạo tài khoản từ Zalo' });
           }
-          return respondWithLoginSuccess(res, { id: result.insertId, name: zaloName, email: `zalo_${zaloId}@beautybook.local`, phone: '', role: 'customer' });
+          return respondWithLoginSuccess(res, { id: result.insertId, name: zaloName, email: `zalo_${zaloId}@beautybook.local`, phone: '', role: 'customer', created_at: new Date().toISOString() });
         }
       );
     });

@@ -113,6 +113,43 @@ const getAllCategories = (callback) => {
   });
 };
 
+const getTrendingServices = (callback) => {
+  const query = `
+    SELECT
+      s.id,
+      s.name,
+      s.description,
+      s.price,
+      s.duration,
+      s.category,
+      s.image_url,
+      s.status,
+      s.created_at,
+      COALESCE(stats.booking_count, 0) AS booking_count,
+      COALESCE(stats.completed_count, 0) AS completed_count,
+      COALESCE(stats.avg_rating, 0) AS avg_rating
+    FROM services s
+    LEFT JOIN (
+      SELECT
+        a.service_id,
+        COUNT(a.id) AS booking_count,
+        SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+        AVG(a.staff_rating) AS avg_rating
+      FROM appointments a
+      WHERE a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+        AND a.status != 'cancelled'
+      GROUP BY a.service_id
+    ) stats ON stats.service_id = s.id
+    WHERE s.status = 'active'
+    ORDER BY booking_count DESC, completed_count DESC, s.created_at DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
+};
+
 module.exports = {
   createService,
   getAllServices,
@@ -122,5 +159,6 @@ module.exports = {
   updateServicePrice,
   deleteService,
   createCategory,
-  getAllCategories
+  getAllCategories,
+  getTrendingServices
 };

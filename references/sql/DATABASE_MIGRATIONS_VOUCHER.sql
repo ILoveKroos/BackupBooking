@@ -46,6 +46,15 @@ CREATE TABLE voucher_assignments (
   last_used_date TIMESTAMP COMMENT 'Last time used',
   is_used BOOLEAN DEFAULT FALSE,
   status ENUM('active', 'used', 'expired') DEFAULT 'active',
+  source ENUM('admin', 'system', 'bot') DEFAULT 'admin',
+  reason VARCHAR(255) COMMENT 'Suggestion or assignment reason',
+  confidence_score FLOAT COMMENT 'ML Score (0-1)',
+  shown_date TIMESTAMP NULL,
+  clicked BOOLEAN DEFAULT FALSE,
+  applied BOOLEAN DEFAULT FALSE,
+  last_appointment_id INT COMMENT 'Latest associated appointment',
+  last_discount_applied DECIMAL(10, 2) DEFAULT 0,
+  total_discount_applied DECIMAL(10, 2) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
   PRIMARY KEY (id),
@@ -55,50 +64,9 @@ CREATE TABLE voucher_assignments (
   INDEX idx_customer_id (customer_id),
   INDEX idx_voucher_id (voucher_id),
   INDEX idx_status (status),
-  INDEX idx_assigned_date (assigned_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Voucher Usage History
-CREATE TABLE voucher_usage_history (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  voucher_id INT NOT NULL,
-  assignment_id INT,
-  customer_id INT NOT NULL,
-  appointment_id INT COMMENT 'Associated appointment',
-  order_id INT COMMENT 'Associated order',
-  discount_applied DECIMAL(10, 2) NOT NULL,
-  used_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  PRIMARY KEY (id),
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  FOREIGN KEY (assignment_id) REFERENCES voucher_assignments(id) ON DELETE SET NULL,
-  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-  INDEX idx_customer_id (customer_id),
-  INDEX idx_voucher_id (voucher_id),
-  INDEX idx_used_date (used_date),
-  INDEX idx_appointment_id (appointment_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Suggested Vouchers (Bot generated)
-CREATE TABLE voucher_suggestions (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  customer_id INT NOT NULL,
-  voucher_id INT NOT NULL,
-  reason VARCHAR(255) COMMENT 'Reason: comeback, category_preference, new_service, etc',
-  confidence_score FLOAT COMMENT 'ML Score (0-1)',
-  shown_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  clicked BOOLEAN DEFAULT FALSE,
-  applied BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  PRIMARY KEY (id),
-  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  INDEX idx_customer_id (customer_id),
-  INDEX idx_voucher_id (voucher_id),
-  INDEX idx_shown_date (shown_date),
-  INDEX idx_reason (reason)
+  INDEX idx_assigned_date (assigned_date),
+  INDEX idx_source (source),
+  INDEX idx_shown_date (shown_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ===================================================================
@@ -265,7 +233,6 @@ ALTER TABLE appointments ADD COLUMN (
 -- Performance indexes
 CREATE INDEX idx_vouchers_code_status ON vouchers(code, status);
 CREATE INDEX idx_assignments_customer_active ON voucher_assignments(customer_id, status);
-CREATE INDEX idx_suggestions_customer_applied ON voucher_suggestions(customer_id, applied);
 CREATE INDEX idx_email_queue_status_created ON email_queue(status, created_at);
 CREATE INDEX idx_email_campaigns_scheduled ON email_campaigns(status, scheduled_send_time);
 

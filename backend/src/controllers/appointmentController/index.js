@@ -1,7 +1,9 @@
-﻿const appointmentModel = require('../../models/appointmentModel');
+const appointmentModel = require('../../models/appointmentModel');
 const serviceModel = require('../../models/serviceModel');
 const staffModel = require('../../models/staffModel');
 const voucherService = require('../../services/voucherService');
+const zaloService = require('../../services/zaloService');
+const userModel = require('../../models/userModel');
 const { calculateScore: calculateCancellationScore } = require('../../services/cancellationScoreService');
 const { normalizeTimeString, addMinutesToTimeString, toShortTimeString } = require('../../utils/timeSlot');
 const { emitDashboardUpdate } = require('../../utils/realtime');
@@ -31,6 +33,23 @@ const canManageAppointment = (appointment, currentUser) => {
   }
 
   return false;
+};
+
+const sendZaloStatusNotification = (appointment, status, cancelReason = '') => {
+  if (appointment && appointment.customer_phone && (status === 'confirmed' || status === 'cancelled')) {
+    const templateId = status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled';
+    zaloService.sendZaloNotification({
+      phone: appointment.customer_phone,
+      templateId,
+      templateData: {
+        customerName: appointment.customer_name || 'Khách hàng',
+        bookingId: appointment.id,
+        time: appointment.appointment_time,
+        date: appointment.appointment_date,
+        reason: cancelReason || 'Cập nhật từ hệ thống'
+      }
+    }).catch(zErr => console.error('[ZALO_NOTIFICATION_STATUS_ERROR]', zErr.message));
+  }
 };
 
 exports.createAppointment = (req, res) => {
@@ -137,7 +156,7 @@ exports.createAppointment = (req, res) => {
             if (conflictInfo) {
               return res.status(400).json({
                 success: false,
-                message: `Nhân viên đã được đặt từ ${toShortTimeString(conflictInfo.busy_start_time)} den ${toShortTimeString(
+                message: `Nhân viên đã được đặt từ ${toShortTimeString(conflictInfo.busy_start_time)} đến ${toShortTimeString(
                   conflictInfo.busy_end_time
                 )}. Vui lòng chọn giờ khác hoặc đổi nhân viên khác.`,
                 conflict: {
@@ -165,6 +184,30 @@ exports.createAppointment = (req, res) => {
                       'Nhân viên không làm việc trong toàn bộ khung giờ đã chọn. Vui lòng đổi nhân viên khác hoặc chọn giờ khác.'
                   });
                 }
+
+                staffModel.isWithinDailyCapacity(
+                  finalStaffId,
+                  appointment_date,
+                  totalDuration,
+                  (capacityErr, capacity) => {
+                    if (capacityErr) {
+                      return res.status(500).json({ success: false, message: 'Lỗi server', error: capacityErr });
+                    }
+
+                    if (!capacity.allowed) {
+                      return res.status(400).json({
+                        success: false,
+                        message: `Nhân viên đã gần đạt giới hạn ${Math.round(
+                          capacity.maxDailyMinutes / 60
+                        )} giờ/ngày. Vui lòng chọn nhân viên khác hoặc đổi ngày.`,
+                        capacity: {
+                          booked_minutes: capacity.bookedMinutes,
+                          requested_duration: capacity.requestedDuration,
+                          projected_minutes: capacity.projectedMinutes,
+                          max_daily_minutes: capacity.maxDailyMinutes
+                        }
+                      });
+                    }
 
                 const finishCreateAppointment = async () => {
                   let voucherResult = null;
@@ -251,6 +294,22 @@ exports.createAppointment = (req, res) => {
                       userId: user_id
                     });
 
+                    // Gửi thông báo Zalo ZNS trong nền (không chặn response phản hồi)
+                    userModel.getUserById(user_id, (userErr, customer) => {
+                      if (!userErr && customer && customer.phone) {
+                        zaloService.sendZaloNotification({
+                          phone: customer.phone,
+                          templateId: 'booking_created',
+                          templateData: {
+                            customerName: customer.name || 'Khách hàng',
+                            time: appointmentData.appointment_time,
+                            date: appointmentData.appointment_date,
+                            staffName: staff.name
+                          }
+                        }).catch(zErr => console.error('[ZALO_NOTIFICATION_CREATE_ERROR]', zErr.message));
+                      }
+                    });
+
                     return res.status(201).json({
                       success: true,
                       message: 'Đặt lịch thành công',
@@ -274,6 +333,8 @@ exports.createAppointment = (req, res) => {
                 };
 
                 return finishCreateAppointment();
+                  }
+                );
               }
             );
           }
@@ -290,6 +351,7 @@ exports.createAppointment = (req, res) => {
       appointment_date,
       normalizedAppointmentTime,
       requestedEndTime,
+      totalDuration,
       (autoErr, autoStaff) => {
         if (autoErr) {
           return res.status(500).json({ success: false, message: 'Lỗi server', error: autoErr });
@@ -387,7 +449,7 @@ exports.getAppointmentById = (req, res) => {
 
 exports.updateAppointmentStatus = (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, cancelReason } = req.body;
 
   if (!status) {
     return res.status(400).json({
@@ -413,22 +475,25 @@ exports.updateAppointmentStatus = (req, res) => {
       });
     }
 
-    appointmentModel.updateAppointmentStatus(id, status, (updateErr) => {
-      if (updateErr) {
-        console.error('[UPDATE_APPOINTMENT_STATUS_ERROR]', updateErr);
-        return res.status(500).json({
-          success: false,
-          message: 'Lỗi server khi cập nhật trạng thái'
-        });
-      }
+    appointmentModel.updateAppointmentStatus(
+      id,
+      status,
+      (updateErr) => {
+        if (updateErr) {
+          console.error('[UPDATE_APPOINTMENT_STATUS_ERROR]', updateErr);
+          return res.status(500).json({
+            success: false,
+            message: 'Lỗi server khi cập nhật trạng thái'
+          });
+        }
 
-      if (status === 'cancelled') {
-        appointmentModel.refreshCustomerCancellationCount(appointment.user_id, (refreshErr) => {
-          if (refreshErr) {
-            console.error('[REFRESH_CANCELLATION_COUNT_ERROR]', refreshErr);
-          }
-        });
-      }
+        if (status === 'cancelled') {
+          appointmentModel.refreshCustomerCancellationCount(appointment.user_id, (refreshErr) => {
+            if (refreshErr) {
+              console.error('[REFRESH_CANCELLATION_COUNT_ERROR]', refreshErr);
+            }
+          });
+        }
 
       emitDashboardUpdate(req, 'appointment.status_updated', {
         appointmentId: Number(id),
@@ -437,11 +502,15 @@ exports.updateAppointmentStatus = (req, res) => {
         staffId: appointment.staff_id
       });
 
-      return res.status(200).json({
-        success: true,
-        message: 'Cập nhật trạng thái thành công'
-      });
-    });
+      sendZaloStatusNotification(appointment, status, cancelReason);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Cập nhật trạng thái thành công'
+        });
+      },
+      cancelReason
+    );
   });
 };
 
@@ -475,6 +544,8 @@ exports.cancelAppointment = (req, res) => {
           staffId: appointment.staff_id
         });
 
+        sendZaloStatusNotification(appointment, 'cancelled', 'Hủy bởi quản lý');
+
         return res.status(200).json({ success: true, message: 'Đã hủy lịch hẹn thành công' });
       });
     }
@@ -487,7 +558,7 @@ exports.cancelAppointment = (req, res) => {
     }
 
     if (appointment.status === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'Lịch hẹn này đã bị hủy truoc do' });
+      return res.status(400).json({ success: false, message: 'Lịch hẹn này đã bị hủy trước đó' });
     }
 
     if (appointment.status === 'completed') {
@@ -511,21 +582,25 @@ exports.cancelAppointment = (req, res) => {
       });
     }
 
-    return appointmentModel.requestAppointmentCancellation(id, (requestErr) => {
-      if (requestErr) {
-        return res.status(500).json({ success: false, message: 'Lỗi server', error: requestErr });
+    return appointmentModel.cancelAppointment(id, (cancelErr) => {
+      if (cancelErr) {
+        return res.status(500).json({ success: false, message: 'Lỗi server', error: cancelErr });
       }
 
-      emitDashboardUpdate(req, 'appointment.cancel_requested', {
+      appointmentModel.refreshCustomerCancellationCount(appointment.user_id, (refreshErr) => {
+        if (refreshErr) {
+          console.error('[REFRESH_CANCELLATION_COUNT_ERROR]', refreshErr);
+        }
+      });
+      emitDashboardUpdate(req, 'appointment.cancelled', {
         appointmentId: Number(id),
         userId: appointment.user_id,
         staffId: appointment.staff_id
       });
 
-      return res.status(200).json({
-        success: true,
-        message: 'Đã gửi yêu cầu hủy. Nhân viên sẽ xác nhận sớm nhất có thể.'
-      });
+      sendZaloStatusNotification(appointment, 'cancelled', 'Khách hàng yêu cầu hủy');
+
+      return res.status(200).json({ success: true, message: 'Đã hủy lịch hẹn thành công' });
     });
   });
 };
@@ -551,7 +626,7 @@ exports.requestCancellationByStaff = (req, res) => {
     }
 
     if (appointment.status === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'Lịch hẹn này đã bị hủy truoc do' });
+      return res.status(400).json({ success: false, message: 'Lịch hẹn này đã bị hủy trước đó' });
     }
 
     if (appointment.status === 'completed') {
@@ -588,7 +663,7 @@ exports.requestCancellationByStaff = (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: 'Đã gửi yêu cầu hủy. Admin hoặc thu ngân sẽ xác nhận sớm nhất có thể.'
+        message: 'Đã gửi yêu cầu hủy. Quản lý hoặc thu ngân sẽ xác nhận sớm nhất có thể.'
       });
     });
   });
@@ -646,6 +721,8 @@ exports.confirmCancellationRequest = (req, res) => {
         userId: appointment.user_id,
         staffId: appointment.staff_id
       });
+
+      sendZaloStatusNotification(appointment, 'cancelled', 'Yêu cầu hủy được nhân viên xác nhận');
 
       return res.status(200).json({
         success: true,

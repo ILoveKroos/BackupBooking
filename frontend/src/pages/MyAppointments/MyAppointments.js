@@ -16,7 +16,7 @@ const getStatusBadge = (appointment) => {
 
   const statusMap = {
     pending: { label: 'Chờ nhân viên xác nhận', class: 'badge-warning' },
-    confirmed: { label: 'Đã xác nhận làm', class: 'badge-success' },
+    confirmed: { label: 'Đã xác nhận', class: 'badge-success' },
     completed: { label: 'Hoàn thành', class: 'badge-info' },
     cancelled: { label: 'Đã hủy', class: 'badge-danger' }
   };
@@ -53,7 +53,7 @@ const getPendingStaffMessage = (appointment) => {
   return 'Lịch hẹn đang chờ nhân viên phụ trách xác nhận nhận lịch.';
 };
 
-const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
 
 const formatAppointmentTimeRange = (appointment) => {
   const startTime = appointment?.appointment_time || '';
@@ -79,12 +79,16 @@ const formatPaymentStatus = (paymentStatus) => {
 };
 
 const formatPaymentMethodLabel = (paymentMethod) => {
-  if (paymentMethod === 'vietqr') {
-    return 'Chuyển khoản ngân hàng';
+  if (paymentMethod === 'cash') {
+    return 'Tiền mặt tại tiệm';
   }
 
-  if (paymentMethod === 'cash') {
-    return 'Tại tiệm';
+  if (paymentMethod === 'banking') {
+    return 'Chuyển khoản tại tiệm';
+  }
+
+  if (paymentMethod === 'vietqr') {
+    return 'VietQR ngân hàng';
   }
 
   if (paymentMethod === 'vnpay') {
@@ -165,18 +169,17 @@ function MyAppointments() {
     [appointments]
   );
 
-  const handleCancelRequest = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn gửi yêu cầu hủy lịch này không?')) {
-      return;
-    }
+  const requestCancel = async (appointmentId) => {
+    const confirmed = window.confirm('Bạn chắc chắn muốn hủy lịch hẹn này?');
+    if (!confirmed) return;
 
     try {
-      setProcessingCancelId(id);
-      await bookingService.cancelBooking(id);
+      setProcessingCancelId(appointmentId);
+      await bookingService.cancelBooking(appointmentId);
       await fetchAppointments();
-      window.alert('Đã gửi yêu cầu hủy. Nhân viên sẽ xác nhận sớm.');
+      window.alert('Đã hủy lịch hẹn thành công.');
     } catch (err) {
-      window.alert(err.response?.data?.message || 'Gửi yêu cầu hủy thất bại.');
+      window.alert(err.response?.data?.message || 'Hủy lịch hẹn thất bại.');
     } finally {
       setProcessingCancelId(null);
     }
@@ -233,7 +236,6 @@ function MyAppointments() {
     const enabledMethods = new Set(paymentOptions.filter((option) => option.enabled).map((option) => option.method));
     const preferredMethod =
       [
-        appointment.payment_method,
         'vnpay',
         'vietqr'
       ].find((method) => method && enabledMethods.has(method)) || 'cash';
@@ -281,12 +283,36 @@ function MyAppointments() {
 
   return (
     <div className="appointments-page">
-      <h1>Lịch hẹn của tôi</h1>
+      <section className="appointments-page-head">
+        <div>
+          <span>Lịch hẹn</span>
+          <h1>Lịch hẹn của tôi</h1>
+        </div>
+
+        <div className="appointment-stats-grid" aria-label="Tóm tắt lịch hẹn">
+          <article>
+            <span>Tất cả</span>
+            <strong>{stats.total}</strong>
+          </article>
+          <article>
+            <span>Chờ xác nhận</span>
+            <strong>{stats.pending}</strong>
+          </article>
+          <article>
+            <span>Hoàn thành</span>
+            <strong>{stats.completed}</strong>
+          </article>
+          <article>
+            <span>Chờ thanh toán</span>
+            <strong>{stats.unpaid}</strong>
+          </article>
+        </div>
+      </section>
 
       {stats.unpaid > 0 && (
         <div className="online-payment-banner">
           <div>
-            <strong>Thanh toán online cho khách hàng</strong>
+            <strong>Thanh toán trực tuyến</strong>
             <span>
               Bạn đang có {stats.unpaid} lịch hẹn chưa thanh toán. Có thể mở lại cổng thanh toán online ngay trong từng lịch.
             </span>
@@ -302,10 +328,10 @@ function MyAppointments() {
           Tất cả ({stats.total})
         </button>
         <button className={`filter-btn ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>
-          Chờ NV xác nhận ({stats.pending})
+          Chờ xác nhận ({stats.pending})
         </button>
         <button className={`filter-btn ${filter === 'confirmed' ? 'active' : ''}`} onClick={() => setFilter('confirmed')}>
-          Đã xác nhận làm ({stats.confirmed})
+          Đã xác nhận ({stats.confirmed})
         </button>
         <button
           className={`filter-btn ${filter === 'unpaid' ? 'active' : ''}`}
@@ -329,7 +355,7 @@ function MyAppointments() {
 
       {filteredAppointments.length === 0 ? (
         <div className="no-appointments">
-          <p>Không có lịch hẹn nào phù hợp với bộ lọc hiện tại.</p>
+          <p>Bạn chưa có lịch hẹn nào thỏa mãn điều kiện lọc.</p>
         </div>
       ) : (
         <div className="appointments-list">
@@ -401,7 +427,11 @@ function MyAppointments() {
                             ? 'Giao dịch đã được ghi nhận và có thể xuất bill ngay.'
                             : appointment.payment_method === 'vietqr'
                               ? 'Bạn có thể mở lại mã chuyển khoản để thanh toán đúng số tiền và nội dung.'
-                              : 'Bạn có thể thanh toán online bất cứ lúc nào nếu cần bill hoặc đối soát ngay.'}
+                              : appointment.payment_method === 'banking'
+                                ? 'Lịch đang chọn chuyển khoản tại salon. Thu ngân sẽ xác nhận khi nhận được tiền.'
+                                : appointment.payment_method === 'cash'
+                                  ? 'Lịch đang chọn tiền mặt tại salon. Bạn vẫn có thể đổi sang thanh toán online nếu cần.'
+                                  : 'Bạn có thể thanh toán online bất cứ lúc nào nếu cần bill hoặc đối soát ngay.'}
                         </span>
                       </div>
                       <div className="payment-status-wrap">
@@ -447,7 +477,7 @@ function MyAppointments() {
                               ? 'Mở mã chuyển khoản'
                               : appointment.payment_method === 'vnpay'
                                 ? 'Mở VNPay'
-                              : 'Thanh toán online ngay'}
+                                : 'Thanh toán online ngay'}
                         </button>
                       ) : (
                         <span className="payment-disabled-note">Lịch này không còn khả dụng để thanh toán online.</span>
@@ -503,11 +533,11 @@ function MyAppointments() {
                 {canRequestCancellation(appointment) && (
                   <div className="appointment-footer">
                     <button
-                      onClick={() => handleCancelRequest(appointment.id)}
+                      onClick={() => requestCancel(appointment.id)}
                       className="btn-danger"
                       disabled={processingCancelId === appointment.id}
                     >
-                      {processingCancelId === appointment.id ? 'Đang gửi yêu cầu...' : 'Yêu cầu hủy lịch'}
+                      {processingCancelId === appointment.id ? 'Đang hủy...' : 'Hủy lịch hẹn'}
                     </button>
                   </div>
                 )}

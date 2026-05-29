@@ -181,13 +181,17 @@ async function voucherSuggestionJob() {
           }
         }
 
-        // Store suggestion if found
+        // Store suggestion metadata on the customer assignment row.
         if (voucherId) {
           const suggestQuery = `
-            INSERT INTO voucher_suggestions (
-              customer_id, voucher_id, reason, confidence_score, shown_date
-            ) VALUES (?, ?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE shown_date = NOW()
+            INSERT INTO voucher_assignments (
+              customer_id, voucher_id, max_usage_customer, source, reason, confidence_score, shown_date
+            ) VALUES (?, ?, 1, 'bot', ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+              source = 'bot',
+              reason = VALUES(reason),
+              confidence_score = VALUES(confidence_score),
+              shown_date = NOW()
           `;
 
           await db.query(suggestQuery, [

@@ -1,7 +1,7 @@
 const { promisify } = require('util');
 const chatModel = require('../../models/chatModel');
 const { buildSmartRuleResponse } = require('../../utils/chatResponseEngine');
-const { generateSalonAIReply, isOpenAIEnabled } = require('../../utils/openAiChat');
+const { generateSalonAIReply, isGeminiEnabled } = require('../../utils/geminiChat');
 const { executeTool } = require('../../utils/toolRegistry');
 
 const getConversationByIdAsync = promisify(chatModel.getConversationById);
@@ -369,7 +369,7 @@ exports.chatWithBot = async (req, res) => {
     let sentiment = 'neutral';
 
     const shouldUseAI =
-      isOpenAIEnabled() &&
+      isGeminiEnabled() &&
       (!finalReply || finalReply.source === 'fallback' || Number(finalReply.confidence || 0) < 1.2);
 
     if (shouldUseAI) {
@@ -396,7 +396,7 @@ exports.chatWithBot = async (req, res) => {
           sentiment = aiResult.sentiment || 'neutral';
         }
       } catch (aiErr) {
-        console.error('[OPENAI_CHAT_ERROR]', aiErr);
+        console.error('[GEMINI_CHAT_ERROR]', aiErr);
       }
     }
 

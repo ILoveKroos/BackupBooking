@@ -4,26 +4,52 @@ import staffService from '../../../services/staffService';
 import './StaffLeaveManagement.css';
 
 const WEEKDAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+const SHIFT_OPTIONS = [
+  { value: 'morning', label: 'Ca sáng' },
+  { value: 'evening', label: 'Ca tối' },
+  { value: 'full', label: 'Full ca' }
+];
+
+const getShiftFromTimes = (dayIndex, startTime, endTime) => {
+  if (!startTime || !endTime) return 'morning';
+  const start = String(startTime).slice(0, 5);
+  const end = String(endTime).slice(0, 5);
+  const [startHour, startMinute] = start.split(':').map(Number);
+  const [endHour, endMinute] = end.split(':').map(Number);
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  if (dayIndex >= 0 && dayIndex <= 4 && start === '08:00' && end === '21:30') return 'full';
+  if (dayIndex >= 5 && start === '07:00' && end === '23:00') return 'full';
+  if (endMinutes - startMinutes > 8 * 60) return 'full';
+
+  return startHour < 12 ? 'morning' : 'evening';
+};
+
+const getTimesFromShift = (dayIndex, shift) => {
+  if (dayIndex >= 0 && dayIndex <= 4) {
+    // Thứ 2 - Thứ 6
+    if (shift === 'morning') return { start: '08:00', end: '16:00' };
+    if (shift === 'evening') return { start: '13:30', end: '21:30' };
+    if (shift === 'full') return { start: '08:00', end: '21:30' };
+  } else {
+    // Thứ 7 - Chủ Nhật
+    if (shift === 'morning') return { start: '07:00', end: '15:00' };
+    if (shift === 'evening') return { start: '15:00', end: '23:00' };
+    if (shift === 'full') return { start: '07:00', end: '23:00' };
+  }
+  return null;
+};
+
+const getShiftLabel = (shift) => SHIFT_OPTIONS.find((item) => item.value === shift)?.label || 'Ca sáng';
 
 const buildWeekFromRows = (rows = []) =>
   WEEKDAY_LABELS.map((label, dayIndex) => {
     const row = rows.find((item) => Number(item.day_of_week) === dayIndex);
-    if (!row) {
-      return {
-        day_of_week: dayIndex,
-        label,
-        enabled: false,
-        start: '09:00',
-        end: '18:00'
-      };
-    }
-
     return {
       day_of_week: dayIndex,
       label,
-      enabled: true,
-      start: String(row.start_time || '').slice(0, 5),
-      end: String(row.end_time || '').slice(0, 5)
+      shift: row ? getShiftFromTimes(dayIndex, row.start_time, row.end_time) : 'morning'
     };
   });
 
@@ -112,14 +138,17 @@ function StaffLeaveManagement() {
     [staffList, selectedStaffId]
   );
 
-  const offDayCount = useMemo(() => weekSlots.filter((day) => !day.enabled).length, [weekSlots]);
-  const workingDayCount = 7 - offDayCount;
+  const morningShiftCount = useMemo(() => weekSlots.filter((day) => day.shift === 'morning').length, [weekSlots]);
+  const eveningShiftCount = useMemo(() => weekSlots.filter((day) => day.shift === 'evening').length, [weekSlots]);
+  const fullShiftCount = useMemo(() => weekSlots.filter((day) => day.shift === 'full').length, [weekSlots]);
 
   const totalWorkingMinutes = useMemo(
     () =>
-      weekSlots
-        .filter((day) => day.enabled)
-        .reduce((total, day) => total + Math.max(0, minutesFromTime(day.end) - minutesFromTime(day.start)), 0),
+      weekSlots.reduce((total, day) => {
+        const times = getTimesFromShift(day.day_of_week, day.shift);
+        if (!times) return total;
+        return total + Math.max(0, minutesFromTime(times.end) - minutesFromTime(times.start));
+      }, 0),
     [weekSlots]
   );
 
@@ -135,21 +164,13 @@ function StaffLeaveManagement() {
     setWeekSlots((prev) => prev.map((day, index) => (index === dayIndex ? { ...day, ...patch } : day)));
   };
 
-  const setAllEnabled = (enabled) => {
-    setSuccess('');
-    setError('');
-    setWeekSlots((prev) => prev.map((day) => ({ ...day, enabled })));
-  };
-
-  const applyPreset = (start, end) => {
+  const applyShiftToWholeWeek = (shiftType) => {
     setSuccess('');
     setError('');
     setWeekSlots((prev) =>
       prev.map((day) => ({
         ...day,
-        enabled: true,
-        start,
-        end
+        shift: shiftType
       }))
     );
   };
@@ -157,27 +178,28 @@ function StaffLeaveManagement() {
   const saveSchedule = async () => {
     if (!selectedStaffId) return;
 
-    const invalidDay = weekSlots.find((day) => day.enabled && minutesFromTime(day.end) <= minutesFromTime(day.start));
-    if (invalidDay) {
-      setError(`Khung giờ ${invalidDay.label} không hợp lệ. Giờ kết thúc phải lớn hơn giờ bắt đầu.`);
+    if (weekSlots.length !== 7 || weekSlots.some((day) => !['morning', 'evening', 'full'].includes(day.shift))) {
+      setError('Vui lòng chọn ca sáng, ca tối hoặc full ca cho đủ 7 ngày trong tuần.');
       return;
     }
 
-    const slots = weekSlots
-      .filter((day) => day.enabled)
-      .map((day) => ({
+    const slots = weekSlots.map((day) => {
+      const times = getTimesFromShift(day.day_of_week, day.shift);
+      return {
         day_of_week: day.day_of_week,
-        start_time: day.start,
-        end_time: day.end
-      }));
+        start_time: times.start,
+        end_time: times.end
+      };
+    });
 
     try {
       setSavingSchedule(true);
       setError('');
+      setSuccess('');
       await staffService.replaceStaffWeeklyAvailability(selectedStaffId, slots);
-      setSuccess('Đã lưu lịch nghỉ/lịch làm việc cho nhân viên.');
+      setSuccess('Đã lưu ca làm hằng tuần cho nhân viên thành công.');
     } catch (err) {
-      setError(err.response?.data?.message || 'Không thể lưu lịch nghỉ.');
+      setError(err.response?.data?.message || 'Không thể lưu ca làm.');
     } finally {
       setSavingSchedule(false);
     }
@@ -203,8 +225,8 @@ function StaffLeaveManagement() {
       <div className="staff-leave-head">
         <div className="staff-leave-head-copy">
           <p className="staff-leave-kicker">Admin</p>
-          <h1>Quản lý lịch nghỉ nhân viên</h1>
-          <p>Thiết lập ngày làm/lịch nghỉ theo tuần cho từng nhân viên.</p>
+          <h1>Quản lý ca làm nhân viên</h1>
+          <p>Thiết lập ca sáng/ca tối/full ca theo khung giờ chuẩn. Ngày nghỉ được xử lý qua yêu cầu xin nghỉ của nhân viên.</p>
         </div>
 
         <div className="staff-leave-head-actions">
@@ -223,14 +245,14 @@ function StaffLeaveManagement() {
           className={`btn-tab ${activeTab === 'weekly' ? 'active' : ''}`}
           onClick={() => setActiveTab('weekly')}
         >
-          Lịch nghỉ cố định
+          Ca làm cố định
         </button>
         <button
           type="button"
           className={`btn-tab ${activeTab === 'requests' ? 'active' : ''}`}
           onClick={() => setActiveTab('requests')}
         >
-          Yêu cầu xin nghỉ phép (Ad-hoc)
+          Yêu cầu xin nghỉ phép
         </button>
       </div>
 
@@ -252,12 +274,16 @@ function StaffLeaveManagement() {
 
           <div className="staff-leave-stat-grid">
             <div className="staff-leave-stat">
-              <span>Ngày làm</span>
-              <strong>{workingDayCount}/7</strong>
+              <span>Ca sáng</span>
+              <strong>{morningShiftCount}/7</strong>
             </div>
             <div className="staff-leave-stat">
-              <span>Ngày nghỉ</span>
-              <strong>{offDayCount}/7</strong>
+              <span>Ca tối</span>
+              <strong>{eveningShiftCount}/7</strong>
+            </div>
+            <div className="staff-leave-stat">
+              <span>Full ca</span>
+              <strong>{fullShiftCount}/7</strong>
             </div>
             <div className="staff-leave-stat">
               <span>Tổng giờ/tuần</span>
@@ -270,25 +296,19 @@ function StaffLeaveManagement() {
           <div className="staff-leave-meta">
             <strong>{selectedStaff.name}</strong>
             <span>{selectedStaff.email}</span>
-            <span>{offDayCount}/7 ngày đang nghỉ</span>
+            <span>{morningShiftCount} ca sáng · {eveningShiftCount} ca tối · {fullShiftCount} full ca</span>
           </div>
         )}
 
         <div className="staff-leave-tools">
-          <button type="button" className="btn-secondary btn-small" onClick={() => applyPreset('08:00', '21:00')}>
-            Fulltime (8:00 - 21:00)
+          <button type="button" className="btn-secondary btn-small" onClick={() => applyShiftToWholeWeek('morning')}>
+            Ca sáng
           </button>
-          <button type="button" className="btn-secondary btn-small" onClick={() => applyPreset('08:00', '14:30')}>
-            Ca sáng (8:00 - 14:30)
+          <button type="button" className="btn-secondary btn-small" onClick={() => applyShiftToWholeWeek('evening')}>
+            Ca tối
           </button>
-          <button type="button" className="btn-secondary btn-small" onClick={() => applyPreset('14:30', '21:00')}>
-            Ca chiều (14:30 - 21:00)
-          </button>
-          <button type="button" className="btn-secondary btn-small" onClick={() => setAllEnabled(true)}>
-            Làm cả tuần
-          </button>
-          <button type="button" className="btn-secondary btn-small" onClick={() => setAllEnabled(false)}>
-            Nghỉ cả tuần
+          <button type="button" className="btn-secondary btn-small" onClick={() => applyShiftToWholeWeek('full')}>
+            Full ca
           </button>
         </div>
 
@@ -300,46 +320,44 @@ function StaffLeaveManagement() {
               <thead>
                 <tr>
                   <th>Ngày</th>
-                  <th>Làm việc</th>
-                  <th>Từ</th>
-                  <th>Đến</th>
+                  <th>Ca làm</th>
+                  <th>Khung giờ thực tế</th>
                 </tr>
               </thead>
               <tbody>
-                {weekSlots.map((day, index) => (
-                  <tr key={day.day_of_week} className={day.enabled ? 'is-working' : 'is-off'}>
-                    <td className="staff-leave-day-cell">
-                      <strong>{day.label}</strong>
-                      <span className={`staff-leave-day-badge ${day.enabled ? 'working' : 'off'}`}>
-                        {day.enabled ? 'Làm việc' : 'Nghỉ'}
-                      </span>
-                    </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={day.enabled}
-                        onChange={(event) => updateDay(index, { enabled: event.target.checked })}
-                        aria-label={`Trạng thái làm việc ${day.label}`}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="time"
-                        value={day.start}
-                        disabled={!day.enabled}
-                        onChange={(event) => updateDay(index, { start: event.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="time"
-                        value={day.end}
-                        disabled={!day.enabled}
-                        onChange={(event) => updateDay(index, { end: event.target.value })}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {weekSlots.map((day, index) => {
+                  const times = getTimesFromShift(day.day_of_week, day.shift);
+                  return (
+                    <tr key={day.day_of_week} className="is-working">
+                      <td className="staff-leave-day-cell">
+                        <strong>{day.label}</strong>
+                        <span className="staff-leave-day-badge working">
+                          {getShiftLabel(day.shift)}
+                        </span>
+                      </td>
+                      <td>
+                        <select
+                          className="staff-shift-select"
+                          value={day.shift}
+                          onChange={(event) => updateDay(index, { shift: event.target.value })}
+                        >
+                          {SHIFT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        {times ? (
+                          <span className="staff-shift-time">{times.start} - {times.end}</span>
+                        ) : (
+                          <span className="staff-shift-time muted">Chưa có khung giờ</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -347,7 +365,7 @@ function StaffLeaveManagement() {
 
         <div className="staff-leave-actions">
           <button type="button" className="btn-primary" onClick={saveSchedule} disabled={savingSchedule || !selectedStaffId}>
-            {savingSchedule ? 'Đang lưu...' : 'Lưu lịch nghỉ'}
+            {savingSchedule ? 'Đang lưu...' : 'Lưu ca làm'}
           </button>
         </div>
         </>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import authService from '../../services/authService';
 import bookingService from '../../services/bookingService';
@@ -6,11 +6,14 @@ import paymentService from '../../services/paymentService';
 import serviceService from '../../services/serviceService';
 import staffService from '../../services/staffService';
 import voucherService from '../../services/voucherService';
+import VoucherIcon from '../../components/VoucherIcon';
 import { formatDurationLabel, formatVnd } from '../../utils/formatters';
 import './Booking.css';
 
-const quickSlots = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '18:00'];
-const visiblePaymentMethodSet = new Set(['cash', 'vietqr', 'vnpay']);
+const WEEKDAY_QUICK_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+const WEEKEND_QUICK_SLOTS = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+const visiblePaymentMethodSet = new Set(['cash', 'banking', 'vietqr', 'vnpay']);
+const manualPaymentMethodSet = new Set(['cash', 'banking']);
 const onlinePaymentMethodSet = new Set(['vietqr', 'vnpay']);
 
 const getStaffRequestError = (err, fallbackMessage) => {
@@ -46,6 +49,35 @@ const timeToMinutes = (value) => {
   }
 
   return hours * 60 + minutes;
+};
+
+const getBusinessWindowForDate = (dateValue) => {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return { start: '08:00', end: '21:30', isWeekend: false };
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = date.getUTCDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  return isWeekend
+    ? { start: '07:00', end: '23:00', isWeekend: true }
+    : { start: '08:00', end: '21:30', isWeekend: false };
+};
+
+const isTimeInBusinessWindow = (dateValue, timeValue) => {
+  const businessWindow = getBusinessWindowForDate(dateValue);
+  const selectedMinutes = timeToMinutes(timeValue);
+  const startMinutes = timeToMinutes(businessWindow.start);
+  const endMinutes = timeToMinutes(businessWindow.end);
+
+  if ([selectedMinutes, startMinutes, endMinutes].some((value) => value === null)) {
+    return false;
+  }
+
+  return selectedMinutes >= startMinutes && selectedMinutes <= endMinutes;
 };
 
 const addMinutesToShortTime = (value, minutesToAdd) => {
@@ -192,8 +224,16 @@ const getSubcategoryLabel = (subcategoryKey) => {
 };
 
 const formatPaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === 'cash') {
+    return 'Tiền mặt tại tiệm';
+  }
+
+  if (paymentMethod === 'banking') {
+    return 'Chuyển khoản tại tiệm';
+  }
+
   if (paymentMethod === 'vietqr') {
-    return 'Chuyển khoản ngân hàng';
+    return 'VietQR ngân hàng';
   }
 
   if (paymentMethod === 'vnpay') {
@@ -203,9 +243,35 @@ const formatPaymentMethodLabel = (paymentMethod) => {
   return 'Thanh toán tại tiệm';
 };
 
+const generateDateOptions = (daysCount = 14) => {
+  const options = [];
+  const today = new Date();
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+  for (let i = 0; i < daysCount; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const localDate = `${year}-${month}-${day}`;
+    
+    const dayName = i === 0 ? 'Hôm nay' : i === 1 ? 'Ngày mai' : dayNames[d.getDay()];
+    const dateLabel = `${day}/${month}`;
+    
+    options.push({
+      value: localDate,
+      dayName,
+      dateLabel
+    });
+  }
+  return options;
+};
+
 function Booking() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
+  const dateInputRef = useRef(null);
 
   const [allServices, setAllServices] = useState([]);
   const [serviceCategoriesFromDb, setServiceCategoriesFromDb] = useState([]);
@@ -238,6 +304,12 @@ function Booking() {
   const [validatingVoucher, setValidatingVoucher] = useState(false);
   const [cancellationRisk, setCancellationRisk] = useState(null);
   const [loadingCancellationRisk, setLoadingCancellationRisk] = useState(false);
+
+  const businessWindow = useMemo(() => getBusinessWindowForDate(appointmentDate), [appointmentDate]);
+  const quickSlots = useMemo(
+    () => (businessWindow.isWeekend ? WEEKEND_QUICK_SLOTS : WEEKDAY_QUICK_SLOTS),
+    [businessWindow.isWeekend]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -536,10 +608,9 @@ function Booking() {
               return prev;
             }
 
-            const blockedStaff = allStaff.find((staff) => String(staff.id) === String(prev));
-            if (blockedStaff) {
+            if (allStaff.some((staff) => String(staff.id) === String(prev))) {
               setStaffError(
-                `Nhân viên ${blockedStaff.name} đã kín lịch trong khung giờ này. Vui lòng đổi giờ hoặc đổi nhân viên.`
+                'Nhân viên này đã kín lịch trong khung giờ này. Vui lòng đổi giờ hoặc đổi nhân viên.'
               );
             }
 
@@ -604,9 +675,21 @@ function Booking() {
       return;
     }
 
+    const businessStartMinutes = timeToMinutes(businessWindow.start);
+    const businessEndMinutes = timeToMinutes(businessWindow.end);
     const nextBusyTimeSlots = quickSlots.filter((slot) => {
+      const slotStartMinutes = timeToMinutes(slot);
       const slotEndTime = addMinutesToShortTime(slot, totalDuration);
+      const slotEndMinutes = timeToMinutes(slotEndTime);
       if (!slotEndTime) {
+        return true;
+      }
+
+      if (
+        [businessStartMinutes, businessEndMinutes, slotStartMinutes, slotEndMinutes].some((value) => value === null) ||
+        slotStartMinutes < businessStartMinutes ||
+        slotEndMinutes > businessEndMinutes
+      ) {
         return true;
       }
 
@@ -614,9 +697,27 @@ function Booking() {
     });
 
     setBusyTimeSlots(nextBusyTimeSlots);
-  }, [busySlotRanges, totalDuration]);
+  }, [busySlotRanges, businessWindow.end, businessWindow.start, quickSlots, totalDuration]);
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const today = useMemo(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  useEffect(() => {
+    if (!appointmentDate) {
+      setAppointmentDate(today);
+    }
+  }, [appointmentDate, today]);
+
+  useEffect(() => {
+    if (appointmentDate && appointmentTime && !isTimeInBusinessWindow(appointmentDate, appointmentTime)) {
+      setAppointmentTime('');
+    }
+  }, [appointmentDate, appointmentTime]);
 
   const staffOptions = useMemo(() => {
     const shouldCheckAvailability = !!appointmentDate && !!appointmentTime && selectedServiceIds.length > 0;
@@ -667,7 +768,7 @@ function Booking() {
           if (option.method === 'vietqr') {
             return {
               ...option,
-              label: 'Chuyển khoản ngân hàng',
+              label: 'VietQR ngân hàng',
               description: option.enabled
                 ? 'Quét mã QR để chuyển khoản đúng số tiền và nội dung thanh toán.'
                 : 'Tạm thời chưa khả dụng.'
@@ -688,8 +789,17 @@ function Booking() {
             return {
               ...option,
               enabled: depositRequired ? false : option.enabled,
-              label: 'Thanh toán tại tiệm',
-              description: 'Đặt lịch trước và thanh toán khi đến sử dụng dịch vụ.'
+              label: 'Tiền mặt',
+              description: 'Thanh toán trực tiếp bằng tiền mặt khi đến salon.'
+            };
+          }
+
+          if (option.method === 'banking') {
+            return {
+              ...option,
+              enabled: depositRequired ? false : option.enabled,
+              label: 'Ngân hàng',
+              description: 'Chuyển khoản tại salon và thu ngân xác nhận sau khi nhận tiền.'
             };
           }
 
@@ -699,7 +809,7 @@ function Booking() {
   );
 
   useEffect(() => {
-    if (!depositRequired || paymentMethod !== 'cash') {
+    if (!depositRequired || !manualPaymentMethodSet.has(paymentMethod)) {
       return;
     }
 
@@ -883,6 +993,7 @@ function Booking() {
 
   const isOnlinePayment = onlinePaymentMethodSet.has(paymentMethod);
   const onlinePaymentLabel = paymentMethod === 'vnpay' ? 'cổng thanh toán online' : 'mã chuyển khoản';
+  const paymentFallbackLabel = isOnlinePayment ? onlinePaymentLabel : 'phiếu thanh toán';
 
   const toggleServiceSelection = (service) => {
     setSelectedServices((current) => {
@@ -933,8 +1044,18 @@ function Booking() {
       return;
     }
 
+    if (!isTimeInBusinessWindow(appointmentDate, appointmentTime)) {
+      setError(`Giờ hẹn ngày này chỉ nhận từ ${businessWindow.start} đến ${businessWindow.end}.`);
+      return;
+    }
+
     if (!selectedSlotEndTime) {
       setError('Khung giờ kết thúc không hợp lệ cho danh sách dịch vụ đã chọn.');
+      return;
+    }
+
+    if (timeToMinutes(selectedSlotEndTime) > timeToMinutes(businessWindow.end)) {
+      setError(`Khung dịch vụ dự kiến cần kết thúc trước ${businessWindow.end}.`);
       return;
     }
 
@@ -981,6 +1102,13 @@ function Booking() {
 
       const paymentResponse = await paymentService.createPayment(createdAppointmentId, paymentMethod);
 
+      const isAutoAssigned = bookingResponse.data?.autoAssigned;
+      const assignedStaffName = bookingResponse.data?.staffName;
+      let baseSuccessMsg = 'Đặt lịch thành công.';
+      if (isAutoAssigned && assignedStaffName) {
+        baseSuccessMsg = `Đặt lịch thành công! Hệ thống đã tự động sắp xếp nhân viên ${assignedStaffName} phục vụ bạn.`;
+      }
+
       if (isOnlinePayment) {
         const paymentUrl = paymentResponse.data?.payment?.payment_url;
 
@@ -990,20 +1118,20 @@ function Booking() {
 
         setSuccess(
           paymentMethod === 'vnpay'
-            ? 'Đã tạo lịch hẹn. Đang mở cổng thanh toán online...'
-            : 'Đã tạo lịch hẹn. Đang mở mã chuyển khoản để bạn quét thanh toán...'
+            ? `${baseSuccessMsg} Đang mở cổng thanh toán online...`
+            : `${baseSuccessMsg} Đang mở mã chuyển khoản...`
         );
         window.location.assign(paymentUrl);
         return;
       }
 
-      setSuccess('Đặt lịch thành công. Trạng thái thanh toán đã được tạo và bạn có thể xem lại trong Lịch của tôi.');
+      setSuccess(`${baseSuccessMsg} Đang chuyển đến Lịch của tôi...`);
       window.setTimeout(() => navigate('/my-appointments'), 1800);
     } catch (err) {
       if (createdAppointmentId) {
         setError(
           err.response?.data?.message ||
-            `Lịch hẹn đã được tạo nhưng chưa mở được ${onlinePaymentLabel}. Bạn có thể thao tác lại trong Lịch của tôi.`
+            `Lịch hẹn đã được tạo nhưng chưa mở được ${paymentFallbackLabel}. Bạn có thể thao tác lại trong Lịch của tôi.`
         );
         setSuccess('Lịch hẹn đã được lưu. Đang chuyển đến danh sách lịch...');
         window.setTimeout(() => navigate('/my-appointments'), 2000);
@@ -1165,9 +1293,10 @@ function Booking() {
             <label>Ngày hẹn</label>
             <input
               type="date"
-              value={appointmentDate}
-              onChange={(event) => setAppointmentDate(event.target.value)}
+              className="form-control"
               min={today}
+              value={appointmentDate}
+              onChange={(e) => setAppointmentDate(e.target.value)}
               required
             />
           </div>
@@ -1176,7 +1305,23 @@ function Booking() {
             <label>Khung giờ phổ biến</label>
             <div className="slot-grid">
               {quickSlots.map((slot) => {
-                const isBusy = busyTimeSlots.includes(slot);
+                const isToday = appointmentDate === today;
+                let isPast = false;
+                
+                if (isToday) {
+                  const now = new Date();
+                  const currentHour = now.getHours();
+                  const currentMinute = now.getMinutes();
+                  const [slotHourStr, slotMinuteStr] = slot.split(':');
+                  const slotHour = parseInt(slotHourStr, 10);
+                  const slotMinute = parseInt(slotMinuteStr, 10);
+                  
+                  if (slotHour < currentHour || (slotHour === currentHour && slotMinute <= currentMinute)) {
+                    isPast = true;
+                  }
+                }
+
+                const isBusy = busyTimeSlots.includes(slot) || isPast;
 
                 return (
                   <button
@@ -1191,7 +1336,7 @@ function Booking() {
                       .join(' ')}
                     onClick={() => handleQuickSlotClick(slot)}
                     disabled={isBusy}
-                    title={isBusy ? 'Nhân viên đang bận ở khung giờ này' : slot}
+                    title={isBusy ? (isPast ? 'Đã qua khung giờ này' : 'Nhân viên đang bận ở khung giờ này') : slot}
                   >
                     {slot}
                   </button>
@@ -1213,10 +1358,15 @@ function Booking() {
             <label>Hoặc chọn giờ cụ thể</label>
             <input
               type="time"
+              min={businessWindow.start}
+              max={businessWindow.end}
               value={appointmentTime}
               onChange={(event) => setAppointmentTime(event.target.value)}
               required
             />
+            <small className="field-hint">
+              Giờ nhận lịch: {businessWindow.start} - {businessWindow.end}
+            </small>
             {appointmentTime && selectedSlotEndTime && (
               <small className="field-hint">Khung giờ dự kiến: {selectedSlotRangeLabel}</small>
             )}
@@ -1253,17 +1403,9 @@ function Booking() {
                   }
                 >
                   {staff.name}
-                  {!!appointmentDate && !!appointmentTime && !staff.isAvailable ? ' - Đang bận' : ''}
                 </option>
               ))}
             </select>
-            {staffError && <small className="field-error">{staffError}</small>}
-            {!staffError && !!appointmentDate && !!appointmentTime && !loadingStaffAvailability && (
-              <small className="field-hint">
-                Có {availableStaffCount}/{allStaff.length} nhân viên khả dụng ở khung giờ này.
-                {!selectedStaffId && ' Bỏ trống để hệ thống tự chọn nhân viên phù hợp.'}
-              </small>
-            )}
           </div>
 
           <div className="form-group">
@@ -1272,7 +1414,7 @@ function Booking() {
               rows="4"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Ví dụ: ưu tiên sau 18h, cần liên hệ trước..."
+              placeholder="Ví dụ: ưu tiên buổi chiều, cần liên hệ trước..."
             />
           </div>
         </section>
@@ -1322,7 +1464,10 @@ function Booking() {
 
           <div className="voucher-picker-panel">
             <div className="voucher-picker-head">
-              <strong>Voucher</strong>
+              <div className="voucher-picker-title">
+                <VoucherIcon className="voucher-picker-icon" />
+                <strong>Voucher</strong>
+              </div>
               <span>{loadingVouchers ? 'Đang tải voucher...' : `${usableVouchers.length} mã khả dụng`}</span>
             </div>
 
@@ -1372,7 +1517,7 @@ function Booking() {
                 <strong>AI chong boom lich</strong>
                 <span>
                   {loadingCancellationRisk
-                    ? 'Dang tinh...'
+                    ? 'Đang tính...'
                     : `${Number(cancellationRisk?.score || 0)}% - ${cancellationRisk?.riskLevel || 'low'}`}
                 </span>
               </div>

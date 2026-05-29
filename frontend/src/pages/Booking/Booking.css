@@ -617,6 +617,88 @@
   border-left: 3px solid rgba(15, 118, 110, 0.3);
 }
 
+/* ─── Date Picker Row ─── */
+
+.date-picker-row {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.date-picker-row::-webkit-scrollbar {
+  display: none;
+}
+
+.date-picker-btn {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  border: 1px solid #d8e5ef;
+  background: #ffffff;
+  color: #334155;
+  transition: all 0.22s ease;
+  cursor: pointer;
+}
+
+.date-picker-btn:hover {
+  border-color: #0f766e;
+  background: #f5fcfa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.08);
+}
+
+.date-picker-btn.active {
+  border-color: #0f766e;
+  background: linear-gradient(135deg, #e6f8f4 0%, #d4f1eb 100%);
+  color: #0a5d56;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.14);
+  transform: translateY(-2px);
+}
+
+.date-picker-day {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.date-picker-btn.active .date-picker-day {
+  color: #0a5d56;
+}
+
+.date-picker-date {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.other-date-btn {
+  position: relative;
+  overflow: hidden;
+  border: 1px dashed #0f766e;
+  background: #f8fbff;
+}
+
+.other-date-btn .date-picker-date {
+  font-size: 14px;
+}
+
+.hidden-date-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  z-index: 2;
+}
+
 /* ─── Booking Summary (Sidebar) ─── */
 
 .booking-summary {

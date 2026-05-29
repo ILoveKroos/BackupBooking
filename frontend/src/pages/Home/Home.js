@@ -206,12 +206,38 @@ const toVietnameseCategoryLabel = (category) => {
   return category || 'Làm đẹp';
 };
 
+const CATEGORY_ICONS = {
+  'toc': '💇',
+  'hair': '💇',
+  'nail': '💅',
+  'mong': '💅',
+  'massage': '💆',
+  'da': '✨',
+  'skin': '✨',
+  'facial': '✨',
+  'mi': '👁️',
+  'may': '👁️',
+  'brow': '👁️',
+  'lash': '👁️',
+  'makeup': '💄',
+  'trang diem': '💄'
+};
+
+const getCategoryIcon = (category) => {
+  const key = normalizeText(category);
+  for (const [pattern, icon] of Object.entries(CATEGORY_ICONS)) {
+    if (key.includes(pattern)) return icon;
+  }
+  return '💎';
+};
+
 function Home({ userLocation = null }) {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(() => getLocalDateKey());
   const [services, setServices] = useState([]);
   const [dbCategories, setDbCategories] = useState([]);
+  const [trendingData, setTrendingData] = useState(null);
   const [loadingServices, setLoadingServices] = useState(true);
   const [serviceError, setServiceError] = useState('');
   const [liveCounter, setLiveCounter] = useState(() => getInitialCounter());
@@ -220,6 +246,7 @@ function Home({ userLocation = null }) {
   const [reviewPreviousPage, setReviewPreviousPage] = useState(0);
   const [reviewDirection, setReviewDirection] = useState('next');
   const [isReviewTransitioning, setIsReviewTransitioning] = useState(false);
+  const [activeTrendingCategory, setActiveTrendingCategory] = useState(null);
 
   const today = useMemo(() => getLocalDateKey(), []);
 
@@ -229,22 +256,36 @@ function Home({ userLocation = null }) {
     const fetchData = async () => {
       try {
         setLoadingServices(true);
-        
-        // Fetch both services and categories in parallel
-        const [servicesResponse, categoriesResponse] = await Promise.all([
+
+        const [servicesResult, categoriesResult, trendingResult] = await Promise.allSettled([
           serviceService.getAllServices(),
-          serviceService.getAllCategories()
+          serviceService.getAllCategories(),
+          serviceService.getTrendingServices()
         ]);
-        
+
+        if (servicesResult.status === 'rejected') {
+          throw servicesResult.reason;
+        }
+
         if (!cancelled) {
-          setServices(servicesResponse.data.data || []);
-          setDbCategories(categoriesResponse.data.data || []);
+          setServices(servicesResult.value.data.data || []);
+          setDbCategories(
+            categoriesResult.status === 'fulfilled'
+              ? categoriesResult.value.data.data || []
+              : []
+          );
+          setTrendingData(
+            trendingResult.status === 'fulfilled'
+              ? trendingResult.value.data.data || null
+              : null
+          );
           setServiceError('');
         }
       } catch (error) {
         if (!cancelled) {
           setServices([]);
           setDbCategories([]);
+          setTrendingData(null);
           setServiceError('Không thể tải dữ liệu dịch vụ tại thời điểm này.');
         }
       } finally {
@@ -389,24 +430,10 @@ function Home({ userLocation = null }) {
   );
 
   const categorizedServices = useMemo(() => {
-    const categoryCount = normalizedServices.reduce((acc, service) => {
-      const categoryKey = normalizeText(service.category || 'other');
-      acc[categoryKey] = (acc[categoryKey] || 0) + 1;
-      return acc;
-    }, {});
-
     const sortedByNewest = [...normalizedServices].sort((a, b) => {
       const timeDiff = toTimestamp(b.created_at) - toTimestamp(a.created_at);
       if (timeDiff !== 0) return timeDiff;
       return Number(b.id || 0) - Number(a.id || 0);
-    });
-
-    const sortedByTrending = [...normalizedServices].sort((a, b) => {
-      const categoryA = normalizeText(a.category || 'other');
-      const categoryB = normalizeText(b.category || 'other');
-      const trendA = (categoryCount[categoryA] || 0) * 1000 + toTimestamp(a.created_at);
-      const trendB = (categoryCount[categoryB] || 0) * 1000 + toTimestamp(b.created_at);
-      return trendB - trendA;
     });
 
     const averagePrice =
@@ -432,12 +459,31 @@ function Home({ userLocation = null }) {
       return picked;
     };
 
-    const trending = pickUnique(sortedByTrending, 4);
     const recommended = pickUnique(sortedByRecommended, 4);
     const newest = pickUnique(sortedByNewest, 4);
 
-    return { trending, recommended, newest };
+    return { recommended, newest };
   }, [normalizedServices]);
+
+  // Trending categories from API
+  const trendingCategories = useMemo(() => {
+    if (!trendingData?.categories) return [];
+    return trendingData.categories;
+  }, [trendingData]);
+
+  // Services for the currently selected trending category
+  const activeTrendingServices = useMemo(() => {
+    if (!trendingCategories.length) return [];
+    
+    if (activeTrendingCategory === null) {
+      // Show top services across all categories (max 4)
+      const allServices = trendingData?.all_services || [];
+      return allServices.slice(0, 4);
+    }
+    
+    const category = trendingCategories.find(c => c.category === activeTrendingCategory);
+    return category ? category.services.slice(0, 4) : [];
+  }, [trendingCategories, activeTrendingCategory, trendingData]);
 
   const categoryChips = useMemo(() => {
     // Use database categories if available, otherwise fallback to hardcoded categories
@@ -574,6 +620,16 @@ function Home({ userLocation = null }) {
     navigate(buildServiceUrl(category, date));
   };
 
+  const todayFormatted = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
+
   return (
     <div className="home-fresha">
       <section className="fresha-hero">
@@ -596,7 +652,7 @@ function Home({ userLocation = null }) {
             </div>
 
             <div className="search-field">
-              <label>Ngày mong muốn</label>
+              <label>Hôm nay, {todayFormatted}</label>
               <input
                 type="date"
                 lang="vi"
@@ -669,18 +725,111 @@ function Home({ userLocation = null }) {
 
         {loadingServices && <p className="listing-empty">Đang tải danh sách dịch vụ...</p>}
         {!loadingServices && serviceError && <div className="alert alert-error">{serviceError}</div>}
-        {!loadingServices &&
-          !serviceError &&
-          categorizedServices.trending.length === 0 &&
-          categorizedServices.recommended.length === 0 &&
-          categorizedServices.newest.length === 0 && (
-            <p className="listing-empty">Chưa có dịch vụ nào trong hệ thống.</p>
-          )}
 
         {!loadingServices && !serviceError && (
           <div className="listing-groups">
+            {/* ===== TRENDING SECTION - Category-based ===== */}
+            {trendingCategories.length > 0 && (
+              <div className="listing-group trending-section">
+                <div className="trending-header">
+                  <h3>Xu hướng</h3>
+                </div>
+
+                <>
+                  <div className="trending-category-tabs">
+                    <button
+                      type="button"
+                      className={`trending-tab ${activeTrendingCategory === null ? 'active' : ''}`}
+                      onClick={() => setActiveTrendingCategory(null)}
+                    >
+                      <span className="trending-tab-icon">🏆</span>
+                      <span className="trending-tab-label">Tất cả</span>
+                    </button>
+                    {trendingCategories.map((cat) => (
+                      <button
+                        type="button"
+                        key={cat.category}
+                        className={`trending-tab ${activeTrendingCategory === cat.category ? 'active' : ''}`}
+                        onClick={() => setActiveTrendingCategory(cat.category)}
+                      >
+                        <span className="trending-tab-icon">
+                          {getCategoryIcon(cat.category)}
+                        </span>
+                        <span className="trending-tab-label">{cat.category}</span>
+                        <span className="trending-tab-count">{cat.total_bookings} lượt</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="service-market-grid">
+                    {activeTrendingServices.map((service, index) => (
+                      <article className="service-market-card trending-card" key={`trending-${service.id}`}>
+                        {index < 3 && (
+                          <div className={`trending-rank rank-${index + 1}`}>
+                            #{index + 1}
+                          </div>
+                        )}
+                        <div className="service-market-image-wrap">
+                          <img
+                            src={getServiceImage(service)}
+                            alt={service.name}
+                            className="service-market-image"
+                            loading="lazy"
+                            onError={(event) => {
+                              if (event.currentTarget.src !== FALLBACK_SERVICE_IMAGE) {
+                                event.currentTarget.src = FALLBACK_SERVICE_IMAGE;
+                              }
+                            }}
+                          />
+                          {Number(service.booking_count) > 0 && (
+                            <div className="trending-booking-badge">
+                              {service.booking_count} lượt đặt
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="service-market-top">
+                          <span>{toVietnameseCategoryLabel(service.category)}</span>
+                          <small>
+                            {Number(service.avg_rating) > 0
+                              ? `${Number(service.avg_rating).toFixed(1)}/5`
+                              : '4.9/5'}
+                          </small>
+                        </div>
+
+                        <h3>{service.name}</h3>
+                        <p>
+                          {service.description ||
+                            'Mô tả đang được cập nhật cho dịch vụ này.'}
+                        </p>
+
+                        <div className="service-market-meta">
+                          <strong>{formatVnd(service.price)}</strong>
+                          <span>{service.duration} phút</span>
+                        </div>
+
+                        <div className="service-market-actions">
+                          <button
+                            type="button"
+                            className="btn-outline"
+                            onClick={() => handleCategoryClick(service.category || service.name)}
+                          >
+                            Tìm tương tự
+                          </button>
+                          <Link to={`/services/${service.id}`} className="btn-link">
+                            Chi tiết
+                          </Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                </>
+              </div>
+            )}
+
+            {/* ===== RECOMMENDED & NEWEST ===== */}
             {[
-              { title: 'Xu hướng', data: categorizedServices.trending },
               { title: 'Đề xuất', data: categorizedServices.recommended },
               { title: 'Mới cập nhật', data: categorizedServices.newest }
             ].map((group) => (

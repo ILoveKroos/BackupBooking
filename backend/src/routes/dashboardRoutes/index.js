@@ -9,6 +9,9 @@ router.use(verifyToken, verifyAdmin);
 // Lấy tóm tắt dashboard
 router.get('/summary', dashboardController.getSummary);
 
+// Dashboard tổng hợp theo ngày/tháng/năm
+router.get('/overview', dashboardController.getOverview);
+
 // Lấy booking theo tháng
 router.get('/bookings-by-month', dashboardController.getBookingsByMonth);
 

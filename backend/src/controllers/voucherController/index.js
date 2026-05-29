@@ -141,7 +141,11 @@ exports.assignVoucher = async (req, res) => {
     const assignments = await voucherService.assignVoucherToCustomers(
       req.params.id,
       customerIds,
-      maxUsageCustomer
+      maxUsageCustomer,
+      {
+        source: 'admin',
+        reason: req.body.reason || null
+      }
     );
     const emailResults = [];
 
@@ -276,7 +280,10 @@ exports.createAndSendVoucherToCustomer = (req, res) => {
         created_by: req.user.id
       });
 
-      await voucherService.assignVoucherToCustomer(voucher.id, customer.id, 1);
+      await voucherService.assignVoucherToCustomer(voucher.id, customer.id, 1, {
+        source,
+        reason
+      });
       const mailResult = await sendVoucherEmailToCustomer({
         customer,
         voucher,

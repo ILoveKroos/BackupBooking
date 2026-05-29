@@ -220,7 +220,7 @@
 
 .appointments-table table {
   width: 100%;
-  min-width: 980px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -229,7 +229,7 @@
 }
 
 .appointments-table th {
-  padding: 16px 15px;
+  padding: 13px 12px;
   text-align: left;
   font-weight: 700;
   color: #25364d;
@@ -239,9 +239,15 @@
 }
 
 .appointments-table td {
-  padding: 16px 15px;
+  padding: 13px 12px;
   border-bottom: 1px solid #edf2f7;
   vertical-align: top;
+}
+
+.appointments-table th:nth-child(3),
+.appointments-table td:nth-child(3) {
+  width: 230px;
+  max-width: 230px;
 }
 
 .appointments-table tbody tr {
@@ -283,6 +289,67 @@
   font-size: 12px;
 }
 
+.appointment-service-cell {
+  min-width: 210px;
+}
+
+.appointment-service-summary {
+  display: grid;
+  max-width: 230px;
+  min-width: 0;
+  gap: 7px;
+}
+
+.appointment-service-name {
+  color: #10233d;
+  display: -webkit-box;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.appointment-service-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.appointment-service-tags span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid #dbe5f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.appointment-service-tags span:first-child {
+  border-color: #b7e4df;
+  background: #edfdfa;
+  color: #0f766e;
+}
+
+.appointment-service-more {
+  color: #64748b;
+  display: -webkit-box;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
 .cell-stack-muted strong {
   color: #64748b;
   font-weight: 600;
@@ -294,7 +361,7 @@
 
 .status-cell {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .status-pill {
@@ -382,31 +449,6 @@
   color: #1d4ed8;
 }
 
-.status-select {
-  min-width: 180px;
-  padding: 9px 12px;
-  border: 1px solid #d6deea;
-  border-radius: 12px;
-  font-size: 13px;
-  color: #12223b;
-  background: #ffffff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-  cursor: pointer;
-}
-
-.status-select:focus {
-  outline: none;
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
-}
-
-.status-select:disabled {
-  cursor: not-allowed;
-  background: #f8fafc;
-  color: #94a3b8;
-  box-shadow: none;
-}
-
 .rating-chip {
   display: inline-flex;
   align-items: center;
@@ -421,7 +463,7 @@
 }
 
 .payment-stack {
-  min-width: 180px;
+  min-width: 135px;
 }
 
 .payment-stack strong {
@@ -466,16 +508,10 @@
   border: 1px solid #fecdd3;
 }
 
-.btn-confirm-payment {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: #ffffff;
-}
-
 .btn-confirm-cancel:disabled,
 .btn-reject-cancel:disabled,
 .btn-accept-booking:disabled,
-.btn-cancel-booking:disabled,
-.btn-confirm-payment:disabled {
+.btn-cancel-booking:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;

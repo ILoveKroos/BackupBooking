@@ -88,28 +88,51 @@ function Register() {
     passwordRequirements.hasNumber;
   const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
 
-  const submitLabel = loading
-    ? 'Đang đăng ký...'
-    : !passwordValid
-      ? 'Hoàn thành yêu cầu mật khẩu'
-      : !confirmPassword
-        ? 'Nhập lại mật khẩu'
-        : !passwordsMatch
-          ? 'Mật khẩu chưa khớp'
-          : 'Đăng ký';
+  const submitLabel = loading ? 'Đang xử lý...' : 'Đăng ký';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
+    if (!name.trim()) {
+      setError('Bạn còn thiếu Họ tên. Vui lòng nhập đầy đủ.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Bạn còn thiếu Email. Vui lòng nhập đầy đủ.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Bạn đang nhập sai định dạng Email. Bạn cần nhập lại nếu sai.');
+      return;
+    }
+
+    if (!password) {
+      setError('Bạn còn thiếu Mật khẩu. Vui lòng nhập đầy đủ.');
+      return;
+    }
+
     if (!passwordValid) {
-      setError('Mật khẩu chưa đáp ứng đủ yêu cầu.');
+      setError('Mật khẩu chưa đủ yêu cầu. Bạn cần nhập lại nếu sai.');
+      return;
+    }
+
+    if (!confirmPassword) {
+      setError('Bạn còn thiếu phần Nhập lại mật khẩu. Vui lòng nhập đầy đủ.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Mật khẩu nhập lại không khớp.');
+      setError('Mật khẩu xác nhận không khớp. Bạn cần nhập lại nếu sai.');
+      return;
+    }
+
+    if (phone && !/^[0-9]{9,11}$/.test(phone)) {
+      setError('Số điện thoại không hợp lệ. Bạn cần nhập lại nếu sai.');
       return;
     }
 
@@ -117,12 +140,31 @@ function Register() {
 
     try {
       await authService.register(name, email, password, phone);
-      authService.logout();
 
-      setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
-      setTimeout(() => navigate('/login'), 2000);
+      // Auto login sau khi đăng ký
+      const loginRes = await authService.login(email, password);
+      const token = loginRes.data.data ? loginRes.data.data.token : loginRes.data.token;
+      
+      authService.setToken(token, true);
+      
+      const profileRes = await authService.getProfile();
+      const user = profileRes.data.data || profileRes.data.user;
+      authService.setUser(user, true);
+
+      setSuccess('Đăng ký thành công! Đang tự động đăng nhập...');
+
+      // Chờ 1 giây rồi tải lại trang để update state hoặc chuyển hướng
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại.');
+      const responseData = err.response?.data;
+      if (responseData?.errors && responseData.errors.length > 0) {
+        const errorDetails = responseData.errors.map(e => e.message).join(' và ');
+        setError(`${responseData.message}: ${errorDetails}`);
+      } else {
+        setError(responseData?.message || 'Đăng ký thất bại.');
+      }
     } finally {
       setLoading(false);
     }
@@ -136,14 +178,13 @@ function Register() {
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label>Họ tên</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
             />
           </div>
 
@@ -153,7 +194,6 @@ function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
             />
           </div>
 
@@ -164,7 +204,6 @@ function Register() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
               />
               <button
                 type="button"
@@ -199,7 +238,6 @@ function Register() {
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                required
               />
               <button
                 type="button"
@@ -230,7 +268,7 @@ function Register() {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading || !passwordValid || !passwordsMatch}
+            disabled={loading}
           >
             {submitLabel}
           </button>

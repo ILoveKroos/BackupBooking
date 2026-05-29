@@ -12,8 +12,6 @@
 
 - [ ] Create vouchers table
 - [ ] Create voucher_assignments table
-- [ ] Create voucher_usage_history table
-- [ ] Create voucher_suggestions table
 - [ ] Create email_verification_tokens table
 - [ ] Create email_queue table
 - [ ] Create email_delivery_tracking table

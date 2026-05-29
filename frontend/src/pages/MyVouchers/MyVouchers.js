@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import VoucherIcon from '../../components/VoucherIcon';
 import voucherService from '../../services/voucherService';
 import { formatVnd } from '../../utils/formatters';
 import './MyVouchers.css';
@@ -65,9 +66,14 @@ function MyVouchers() {
   return (
     <div className="my-vouchers-page">
       <section className="voucher-page-head">
-        <div>
-          <p>BeautyBook</p>
-          <h1>Voucher của tôi</h1>
+        <div className="voucher-head-title">
+          <span className="voucher-head-icon">
+            <VoucherIcon className="voucher-head-svg" />
+          </span>
+          <div>
+            <p>BeautyBook</p>
+            <h1>Voucher của tôi</h1>
+          </div>
         </div>
         <div className="voucher-count">
           <strong>{activeCount}</strong>

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const serviceModel = require('../../models/serviceModel');
+const serviceRecommendationService = require('../../services/serviceRecommendationService');
 const fsPromises = fs.promises;
 
 const SERVICE_UPLOAD_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'services');
@@ -369,3 +370,55 @@ exports.deleteService = (req, res) => {
     });
   });
 };
+
+exports.getServiceRecommendations = async (req, res) => {
+  try {
+    const result = await serviceRecommendationService.getRecommendationsForService({
+      serviceId: req.query.serviceId || req.query.service_id,
+      limit: req.query.limit
+    });
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Không thể lấy gợi ý dịch vụ'
+    });
+  }
+};
+
+exports.getTrendingServices = (req, res) => {
+  serviceModel.getTrendingServices((err, services) => {
+    if (err) {
+      return res.status(500).json({ message: 'Lỗi server', error: err });
+    }
+
+    // Group services by category
+    const categoryMap = {};
+    (services || []).forEach((service) => {
+      const category = service.category || 'Khác';
+      if (!categoryMap[category]) {
+        categoryMap[category] = {
+          category,
+          total_bookings: 0,
+          services: []
+        };
+      }
+      categoryMap[category].services.push(service);
+      categoryMap[category].total_bookings += Number(service.booking_count || 0);
+    });
+
+    // Sort categories by total bookings (most popular first)
+    const categories = Object.values(categoryMap)
+      .sort((a, b) => b.total_bookings - a.total_bookings);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        categories,
+        all_services: services || []
+      }
+    });
+  });
+};
+

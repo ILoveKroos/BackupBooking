@@ -9,7 +9,10 @@ const paymentService = {
       payment_method: paymentMethod
     }),
 
-  confirmTransferPayment: (paymentId) => api.put(`/payments/${paymentId}/confirm-transfer`),
+  confirmTransferPayment: (paymentId, paymentMethod) =>
+    api.put(`/payments/${paymentId}/confirm-transfer`, {
+      payment_method: paymentMethod
+    }),
 
   getPayment: (paymentId) => api.get(`/payments/${paymentId}`)
 };

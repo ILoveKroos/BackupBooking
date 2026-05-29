@@ -523,47 +523,21 @@ CREATE TABLE voucher_assignments (
   last_used_date TIMESTAMP,
   is_used BOOLEAN DEFAULT FALSE,
   status ENUM('active', 'used', 'expired') DEFAULT 'active',
+  source ENUM('admin', 'system', 'bot') DEFAULT 'admin',
+  reason VARCHAR(255),
+  confidence_score FLOAT,
+  shown_date TIMESTAMP,
+  clicked BOOLEAN DEFAULT FALSE,
+  applied BOOLEAN DEFAULT FALSE,
+  last_appointment_id INT,
+  last_discount_applied DECIMAL(10, 2) DEFAULT 0,
+  total_discount_applied DECIMAL(10, 2) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
   FOREIGN KEY (customer_id) REFERENCES customers(id),
   UNIQUE KEY unique_voucher_customer (voucher_id, customer_id),
   INDEX idx_customer_id (customer_id),
   INDEX idx_status (status)
-);
-
--- Voucher Usage History
-CREATE TABLE voucher_usage_history (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  voucher_id INT NOT NULL,
-  assignment_id INT,
-  customer_id INT NOT NULL,
-  appointment_id INT,
-  order_id INT,
-  discount_applied DECIMAL(10, 2) NOT NULL,
-  used_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
-  FOREIGN KEY (assignment_id) REFERENCES voucher_assignments(id),
-  FOREIGN KEY (customer_id) REFERENCES customers(id),
-  INDEX idx_customer_id (customer_id),
-  INDEX idx_used_date (used_date)
-);
-
--- Suggested Vouchers (Bot generated)
-CREATE TABLE voucher_suggestions (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  customer_id INT NOT NULL,
-  voucher_id INT NOT NULL,
-  reason VARCHAR(255), -- "comeback", "category_preference", etc
-  confidence_score FLOAT, -- 0-1
-  shown_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  clicked BOOLEAN DEFAULT FALSE,
-  applied BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (customer_id) REFERENCES customers(id),
-  FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
-  INDEX idx_customer_id (customer_id),
-  INDEX idx_shown_date (shown_date)
 );
 ```
 

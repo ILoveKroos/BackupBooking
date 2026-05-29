@@ -15,7 +15,7 @@ const rateLimit = require('express-rate-limit');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
-  limit: 10, // Tối đa 10 requests / 1 IP / 15 phút
+  limit: 10000, // Nới lỏng giới hạn để test thoải mái
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Quá nhiều yêu cầu, vui lòng thử lại sau 15 phút.' }

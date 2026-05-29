@@ -10,9 +10,13 @@ SET @payments_method_type := (
   LIMIT 1
 );
 SET @sql_payments_method_type := IF(
-  @payments_method_type IS NOT NULL AND @payments_method_type NOT LIKE '%''vietqr''%',
+  @payments_method_type IS NOT NULL
+    AND (
+      @payments_method_type NOT LIKE '%''banking''%'
+      OR @payments_method_type NOT LIKE '%''vietqr''%'
+    ),
   'ALTER TABLE payments MODIFY COLUMN payment_method ENUM(''cash'', ''banking'', ''momo'', ''vnpay'', ''vietqr'') DEFAULT ''cash''',
-  'SELECT "payments.payment_method already supports vietqr"'
+  'SELECT "payments.payment_method already supports manual banking and vietqr"'
 );
 PREPARE stmt_payments_method_type FROM @sql_payments_method_type;
 EXECUTE stmt_payments_method_type;

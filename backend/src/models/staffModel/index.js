@@ -1,6 +1,137 @@
 const db = require('../../config/db');
 const { getAppointmentServiceSchemaInfo } = require('../../utils/appointmentServiceSchema');
 
+const DEFAULT_MAX_DAILY_STAFF_MINUTES = 8 * 60;
+
+const getMaxDailyStaffMinutes = () => {
+  const configuredMinutes = Number(process.env.STAFF_MAX_DAILY_MINUTES);
+  if (Number.isFinite(configuredMinutes) && configuredMinutes > 0) {
+    return Math.round(configuredMinutes);
+  }
+
+  const configuredHours = Number(process.env.STAFF_MAX_DAILY_HOURS);
+  if (Number.isFinite(configuredHours) && configuredHours > 0) {
+    return Math.round(configuredHours * 60);
+  }
+
+  return DEFAULT_MAX_DAILY_STAFF_MINUTES;
+};
+
+let staffWeeklyAvailabilityReady = false;
+let staffWeeklyAvailabilityCallbacks = [];
+let staffWeeklyAvailabilityChecking = false;
+
+const backfillDefaultStaffWeeklyAvailability = (callback) => {
+  const query = `
+    INSERT INTO staff_weekly_availability (staff_id, day_of_week, start_time, end_time)
+    SELECT
+      u.id,
+      d.day_of_week,
+      CASE WHEN d.day_of_week BETWEEN 0 AND 4 THEN '08:00:00' ELSE '07:00:00' END,
+      CASE WHEN d.day_of_week BETWEEN 0 AND 4 THEN '16:00:00' ELSE '15:00:00' END
+    FROM users u
+    JOIN (
+      SELECT 0 AS day_of_week UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+      UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+    ) d
+    WHERE u.role = 'staff'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM staff_weekly_availability swa
+        WHERE swa.staff_id = u.id
+          AND swa.day_of_week = d.day_of_week
+      )
+  `;
+
+  return db.query(query, callback);
+};
+
+const ensureStaffWeeklyAvailabilityTable = (callback) => {
+  if (staffWeeklyAvailabilityReady) {
+    return callback(null);
+  }
+
+  staffWeeklyAvailabilityCallbacks.push(callback);
+
+  if (staffWeeklyAvailabilityChecking) {
+    return undefined;
+  }
+
+  staffWeeklyAvailabilityChecking = true;
+  const query = `
+    CREATE TABLE IF NOT EXISTS staff_weekly_availability (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      staff_id INT NOT NULL,
+      day_of_week TINYINT NOT NULL COMMENT '0=Monday ... 6=Sunday (matches MySQL WEEKDAY)',
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      INDEX idx_staff_week (staff_id, day_of_week),
+      CONSTRAINT fk_swa_staff_auto FOREIGN KEY (staff_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `;
+
+  const finish = (err) => {
+    staffWeeklyAvailabilityReady = !err;
+    staffWeeklyAvailabilityChecking = false;
+    const callbacks = staffWeeklyAvailabilityCallbacks;
+    staffWeeklyAvailabilityCallbacks = [];
+    callbacks.forEach((queuedCallback) => queuedCallback(err));
+  };
+
+  return db.query(query, (err) => {
+    if (err) {
+      return finish(err);
+    }
+
+    return backfillDefaultStaffWeeklyAvailability(finish);
+  });
+};
+
+let staffLeaveRequestsReady = false;
+let staffLeaveRequestsCallbacks = [];
+let staffLeaveRequestsChecking = false;
+
+const ensureStaffLeaveRequestsTable = (callback) => {
+  if (staffLeaveRequestsReady) {
+    return callback(null);
+  }
+
+  staffLeaveRequestsCallbacks.push(callback);
+
+  if (staffLeaveRequestsChecking) {
+    return undefined;
+  }
+
+  staffLeaveRequestsChecking = true;
+  const query = `
+    CREATE TABLE IF NOT EXISTS staff_leave_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      staff_id INT NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      reason TEXT NOT NULL,
+      status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_slr_staff_auto FOREIGN KEY (staff_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `;
+
+  return db.query(query, (err) => {
+    staffLeaveRequestsReady = !err;
+    staffLeaveRequestsChecking = false;
+    const callbacks = staffLeaveRequestsCallbacks;
+    staffLeaveRequestsCallbacks = [];
+    callbacks.forEach((queuedCallback) => queuedCallback(err));
+  });
+};
+
+const ensureStaffSchedulingTables = (callback) => {
+  ensureStaffWeeklyAvailabilityTable((weeklyErr) => {
+    if (weeklyErr) return callback(weeklyErr);
+    return ensureStaffLeaveRequestsTable(callback);
+  });
+};
+
 /** Vai trò không hiển thị / không được chọn khi khách đặt dịch vụ (so khớp không phân biệt hoa thường). */
 const CUSTOMER_BOOKING_EXCLUDED_ROLE_NORMALIZED = 'thu ngân';
 
@@ -31,32 +162,37 @@ const appointmentServiceSummaryJoin = (appointmentAlias = 'a', summaryAlias = 's
   ) ${summaryAlias} ON ${summaryAlias}.appointment_id = ${appointmentAlias}.id
 `;
 
-const getAppointmentConflictExpressions = (hasAppointmentServicesTable) => {
+const getAppointmentConflictExpressions = (
+  hasAppointmentServicesTable,
+  appointmentAlias = 'a',
+  serviceAlias = 'booked_service',
+  summaryAlias = 'service_summary'
+) => {
   if (!hasAppointmentServicesTable) {
     return {
       summaryJoin: '',
       busyEndExpression: `
         COALESCE(
-          a.end_time,
-          ADDTIME(a.appointment_time, SEC_TO_TIME(booked_service.duration * 60))
+          ${appointmentAlias}.end_time,
+          ADDTIME(${appointmentAlias}.appointment_time, SEC_TO_TIME(${serviceAlias}.duration * 60))
         )
       `,
-      bookedServiceNameExpression: 'booked_service.name'
+      bookedServiceNameExpression: `${serviceAlias}.name`
     };
   }
 
   return {
-    summaryJoin: appointmentServiceSummaryJoin('a', 'service_summary'),
+    summaryJoin: appointmentServiceSummaryJoin(appointmentAlias, summaryAlias),
     busyEndExpression: `
       COALESCE(
-        a.end_time,
+        ${appointmentAlias}.end_time,
         ADDTIME(
-          a.appointment_time,
-          SEC_TO_TIME(COALESCE(service_summary.total_duration, booked_service.duration) * 60)
+          ${appointmentAlias}.appointment_time,
+          SEC_TO_TIME(COALESCE(${summaryAlias}.total_duration, ${serviceAlias}.duration) * 60)
         )
       )
     `,
-    bookedServiceNameExpression: 'COALESCE(service_summary.service_names, booked_service.name)'
+    bookedServiceNameExpression: `COALESCE(${summaryAlias}.service_names, ${serviceAlias}.name)`
   };
 };
 
@@ -67,8 +203,12 @@ const getAllStaff = (callback) => {
       u.name,
       u.email,
       u.phone,
+      u.role,
       u.staff_role_id,
-      sr.role_name,
+      CASE
+        WHEN u.role = 'admin' THEN 'Quản lý'
+        ELSE sr.role_name
+      END AS role_name,
       u.is_active,
       u.created_at,
       COUNT(a.id) AS total_appointments,
@@ -90,21 +230,38 @@ const getAllStaff = (callback) => {
             WHEN a.status = 'completed'
               AND YEAR(a.appointment_date) = YEAR(CURDATE())
               AND MONTH(a.appointment_date) = MONTH(CURDATE())
-            THEN a.total_amount * 0.1
+            THEN a.total_amount * 0.4
             ELSE 0
           END
         ),
         0
-      ) AS monthly_commission
+      ) AS monthly_commission,
+      COALESCE(AVG(a.staff_rating), 0) AS avg_rating,
+      COUNT(a.staff_rating) AS review_count,
+      (
+        SELECT COALESCE(SUM(COALESCE(service_summary.total_duration, s_main.duration, 0)), 0)
+        FROM appointments ap
+        LEFT JOIN services s_main ON s_main.id = ap.service_id
+        LEFT JOIN (
+          SELECT aps.appointment_id, SUM(COALESCE(aps.duration_snapshot, s2.duration, 0)) AS total_duration
+          FROM appointment_services aps
+          LEFT JOIN services s2 ON s2.id = aps.service_id
+          GROUP BY aps.appointment_id
+        ) service_summary ON service_summary.appointment_id = ap.id
+        WHERE ap.staff_id = u.id
+          AND ap.status = 'completed'
+          AND YEAR(ap.appointment_date) = YEAR(CURDATE())
+          AND MONTH(ap.appointment_date) = MONTH(CURDATE())
+      ) AS monthly_minutes
     FROM users u
     LEFT JOIN staff_role sr
       ON sr.id = u.staff_role_id
     LEFT JOIN appointments a
       ON a.staff_id = u.id
       AND a.status != 'cancelled'
-    WHERE u.role = 'staff'
-    GROUP BY u.id, u.name, u.email, u.phone, u.staff_role_id, sr.role_name, u.is_active, u.created_at
-    ORDER BY u.is_active DESC, u.name ASC
+    WHERE u.role IN ('staff', 'admin')
+    GROUP BY u.id, u.name, u.email, u.phone, u.role, u.staff_role_id, sr.role_name, u.is_active, u.created_at
+    ORDER BY FIELD(u.role, 'admin', 'staff'), u.is_active DESC, u.name ASC
   `;
 
   db.query(query, (err, results) => {
@@ -143,6 +300,33 @@ const getStaffById = (id, callback) => {
   });
 };
 
+const getStaffOrAdminById = (id, callback) => {
+  const query = `
+    SELECT
+      u.id,
+      u.name,
+      u.email,
+      u.phone,
+      u.role,
+      u.staff_role_id,
+      u.is_active,
+      u.created_at,
+      CASE
+        WHEN u.role = 'admin' THEN 'Quản lý'
+        ELSE sr.role_name
+      END AS role_name
+    FROM users u
+    LEFT JOIN staff_role sr ON sr.id = u.staff_role_id
+    WHERE u.id = ? AND u.role IN ('staff', 'admin')
+    LIMIT 1
+  `;
+
+  db.query(query, [id], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results[0] || null);
+  });
+};
+
 const createStaff = (staffData, callback) => {
   const { name, email, password, phone, staff_role_id, is_active } = staffData;
   const query = `
@@ -155,7 +339,14 @@ const createStaff = (staffData, callback) => {
     [name, email, password, phone || '', staff_role_id, is_active ? 1 : 0],
     (err, result) => {
       if (err) return callback(err);
-      callback(null, result);
+      ensureStaffWeeklyAvailabilityTable((scheduleErr) => {
+        if (scheduleErr) return callback(scheduleErr);
+
+        return backfillDefaultStaffWeeklyAvailability((backfillErr) => {
+          if (backfillErr) return callback(backfillErr);
+          return callback(null, result);
+        });
+      });
     }
   );
 };
@@ -220,12 +411,37 @@ const updateStaff = (id, staffData, callback) => {
   });
 };
 
-const getAvailableStaff = (appointmentDate, requestedStartTime, requestedEndTime, callback) => {
-  getAppointmentServiceSchemaInfo((schemaErr, appointmentServiceSchemaInfo) => {
+const getAvailableStaff = (
+  appointmentDate,
+  requestedStartTime,
+  requestedEndTime,
+  requestedDurationMinutes,
+  callback
+) => {
+  if (typeof requestedDurationMinutes === 'function') {
+    callback = requestedDurationMinutes;
+    requestedDurationMinutes = 0;
+  }
+
+  ensureStaffSchedulingTables((scheduleTableErr) => {
+    if (scheduleTableErr) return callback(scheduleTableErr);
+
+    getAppointmentServiceSchemaInfo((schemaErr, appointmentServiceSchemaInfo) => {
     if (schemaErr) return callback(schemaErr);
 
     const { summaryJoin, busyEndExpression, bookedServiceNameExpression } =
       getAppointmentConflictExpressions(appointmentServiceSchemaInfo.hasAppointmentServicesTable);
+    const {
+      summaryJoin: dailySummaryJoin,
+      busyEndExpression: dailyBusyEndExpression
+    } = getAppointmentConflictExpressions(
+      appointmentServiceSchemaInfo.hasAppointmentServicesTable,
+      'daily_a',
+      'daily_service',
+      'daily_service_summary'
+    );
+    const maxDailyMinutes = getMaxDailyStaffMinutes();
+    const requestedDuration = Number(requestedDurationMinutes || 0);
 
     const availableQuery = `
       SELECT u.id, u.name, u.email, u.phone
@@ -234,6 +450,13 @@ const getAvailableStaff = (appointmentDate, requestedStartTime, requestedEndTime
       WHERE u.role = 'staff'
         AND u.is_active = 1
         ${customerBookableStaffRoleFilter}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM staff_leave_requests slr
+          WHERE slr.staff_id = u.id
+            AND slr.status = 'approved'
+            AND ? BETWEEN slr.start_date AND slr.end_date
+        )
         AND NOT EXISTS (
           SELECT 1
           FROM appointments a
@@ -246,15 +469,41 @@ const getAvailableStaff = (appointmentDate, requestedStartTime, requestedEndTime
             AND TIME(a.appointment_time) < TIME(?)
             AND TIME(${busyEndExpression}) > TIME(?)
         )
+        AND EXISTS (
+          SELECT 1
+          FROM staff_weekly_availability swa2
+          WHERE swa2.staff_id = u.id
+            AND swa2.day_of_week = WEEKDAY(?)
+            AND TIME(?) >= swa2.start_time
+            AND TIME(?) <= swa2.end_time
+        )
         AND (
-          (SELECT COUNT(*) FROM staff_weekly_availability swa WHERE swa.staff_id = u.id) = 0
-          OR EXISTS (
-            SELECT 1
-            FROM staff_weekly_availability swa2
-            WHERE swa2.staff_id = u.id
-              AND swa2.day_of_week = WEEKDAY(?)
-              AND TIME(?) >= swa2.start_time
-              AND TIME(?) <= swa2.end_time
+          ? <= 0
+          OR (
+            SELECT COALESCE(
+              SUM(
+                GREATEST(
+                  0,
+                  FLOOR(TIME_TO_SEC(TIMEDIFF(${dailyBusyEndExpression}, daily_a.appointment_time)) / 60)
+                )
+              ),
+              0
+            )
+            FROM appointments daily_a
+            JOIN services daily_service
+              ON daily_service.id = daily_a.service_id
+            ${dailySummaryJoin}
+            WHERE daily_a.staff_id = u.id
+              AND daily_a.appointment_date = ?
+              AND daily_a.status != 'cancelled'
+          ) + ? <= COALESCE(
+            (
+              SELECT MAX(FLOOR(TIME_TO_SEC(TIMEDIFF(swa_cap.end_time, swa_cap.start_time)) / 60))
+              FROM staff_weekly_availability swa_cap
+              WHERE swa_cap.staff_id = u.id
+                AND swa_cap.day_of_week = WEEKDAY(?)
+            ),
+            ?
           )
         )
       ORDER BY u.name ASC
@@ -294,11 +543,17 @@ const getAvailableStaff = (appointmentDate, requestedStartTime, requestedEndTime
       [
         CUSTOMER_BOOKING_EXCLUDED_ROLE_NORMALIZED,
         appointmentDate,
+        appointmentDate,
         requestedEndTime,
         requestedStartTime,
         appointmentDate,
         requestedStartTime,
-        requestedEndTime
+        requestedEndTime,
+        requestedDuration,
+        appointmentDate,
+        requestedDuration,
+        appointmentDate,
+        maxDailyMinutes
       ],
       (availableErr, availableResults) => {
         if (availableErr) return callback(availableErr);
@@ -322,6 +577,7 @@ const getAvailableStaff = (appointmentDate, requestedStartTime, requestedEndTime
         );
       }
     );
+    });
   });
 };
 
@@ -357,6 +613,96 @@ const getBusyTimeSlots = (staffId, appointmentDate, callback) => {
   });
 };
 
+const getStaffBookedMinutes = (staffId, appointmentDate, callback) => {
+  getAppointmentServiceSchemaInfo((schemaErr, appointmentServiceSchemaInfo) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const { summaryJoin, busyEndExpression } = getAppointmentConflictExpressions(
+      appointmentServiceSchemaInfo.hasAppointmentServicesTable,
+      'a',
+      'booked_service',
+      'service_summary'
+    );
+    const query = `
+      SELECT COALESCE(
+        SUM(
+          GREATEST(
+            0,
+            FLOOR(TIME_TO_SEC(TIMEDIFF(${busyEndExpression}, a.appointment_time)) / 60)
+          )
+        ),
+        0
+      ) AS booked_minutes
+      FROM appointments a
+      JOIN services booked_service
+        ON booked_service.id = a.service_id
+      ${summaryJoin}
+      WHERE a.staff_id = ?
+        AND a.appointment_date = ?
+        AND a.status != 'cancelled'
+    `;
+
+    db.query(query, [staffId, appointmentDate], (err, rows) => {
+      if (err) return callback(err);
+      callback(null, Number(rows[0]?.booked_minutes || 0));
+    });
+  });
+};
+
+const getStaffDailyCapacityMinutes = (staffId, appointmentDate, callback) => {
+  const defaultMaxDailyMinutes = getMaxDailyStaffMinutes();
+
+  ensureStaffWeeklyAvailabilityTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const query = `
+      SELECT MAX(FLOOR(TIME_TO_SEC(TIMEDIFF(end_time, start_time)) / 60)) AS capacity_minutes
+      FROM staff_weekly_availability
+      WHERE staff_id = ?
+        AND day_of_week = WEEKDAY(?)
+    `;
+
+    return db.query(query, [staffId, appointmentDate], (err, rows) => {
+      if (err) return callback(err);
+
+      const scheduledMinutes = Number(rows[0]?.capacity_minutes || 0);
+      return callback(null, scheduledMinutes > 0 ? scheduledMinutes : defaultMaxDailyMinutes);
+    });
+  });
+};
+
+const isWithinDailyCapacity = (staffId, appointmentDate, requestedDurationMinutes, callback) => {
+  const requestedDuration = Number(requestedDurationMinutes || 0);
+  const maxDailyMinutes = getMaxDailyStaffMinutes();
+
+  if (requestedDuration <= 0) {
+    return callback(null, {
+      allowed: true,
+      bookedMinutes: 0,
+      requestedDuration: 0,
+      maxDailyMinutes
+    });
+  }
+
+  return getStaffDailyCapacityMinutes(staffId, appointmentDate, (capacityErr, staffDailyCapacityMinutes) => {
+    if (capacityErr) return callback(capacityErr);
+
+    return getStaffBookedMinutes(staffId, appointmentDate, (err, bookedMinutes) => {
+      if (err) return callback(err);
+
+      const projectedMinutes = bookedMinutes + requestedDuration;
+
+      return callback(null, {
+        allowed: projectedMinutes <= staffDailyCapacityMinutes,
+        bookedMinutes,
+        requestedDuration,
+        projectedMinutes,
+        maxDailyMinutes: staffDailyCapacityMinutes
+      });
+    });
+  });
+};
+
 const isStaffRoleExcludedFromCustomerBooking = (roleName) => {
   const normalized = (roleName || '').trim().toLowerCase();
   return normalized === CUSTOMER_BOOKING_EXCLUDED_ROLE_NORMALIZED;
@@ -378,35 +724,43 @@ const getStaffRoleNameByUserId = (userId, callback) => {
 };
 
 const getWeeklyAvailabilityByStaffId = (staffId, callback) => {
-  const query = `
-    SELECT id, staff_id, day_of_week, start_time, end_time
-    FROM staff_weekly_availability
-    WHERE staff_id = ?
-    ORDER BY day_of_week ASC, start_time ASC
-  `;
+  ensureStaffWeeklyAvailabilityTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
 
-  db.query(query, [staffId], (err, results) => {
-    if (err) return callback(err);
-    callback(null, results);
+    const query = `
+      SELECT id, staff_id, day_of_week, start_time, end_time
+      FROM staff_weekly_availability
+      WHERE staff_id = ?
+      ORDER BY day_of_week ASC, start_time ASC
+    `;
+
+    db.query(query, [staffId], (err, results) => {
+      if (err) return callback(err);
+      callback(null, results);
+    });
   });
 };
 
 const replaceWeeklyAvailability = (staffId, slots, callback) => {
-  db.query('DELETE FROM staff_weekly_availability WHERE staff_id = ?', [staffId], (delErr) => {
-    if (delErr) return callback(delErr);
-    if (!slots || slots.length === 0) {
-      return callback(null, { affectedRows: 0 });
-    }
+  ensureStaffWeeklyAvailabilityTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
 
-    const values = slots.map((row) => [staffId, row.day_of_week, row.start_time, row.end_time]);
-    const insertSql = `
-      INSERT INTO staff_weekly_availability (staff_id, day_of_week, start_time, end_time)
-      VALUES ?
-    `;
+    db.query('DELETE FROM staff_weekly_availability WHERE staff_id = ?', [staffId], (delErr) => {
+      if (delErr) return callback(delErr);
+      if (!slots || slots.length === 0) {
+        return callback(null, { affectedRows: 0 });
+      }
 
-    db.query(insertSql, [values], (insErr, result) => {
-      if (insErr) return callback(insErr);
-      callback(null, result);
+      const values = slots.map((row) => [staffId, row.day_of_week, row.start_time, row.end_time]);
+      const insertSql = `
+        INSERT INTO staff_weekly_availability (staff_id, day_of_week, start_time, end_time)
+        VALUES ?
+      `;
+
+      db.query(insertSql, [values], (insErr, result) => {
+        if (insErr) return callback(insErr);
+        callback(null, result);
+      });
     });
   });
 };
@@ -418,13 +772,22 @@ const isStaffAvailableForWeeklySchedule = (
   requestedEndTime,
   callback
 ) => {
-  db.query(
-    'SELECT COUNT(*) AS c FROM staff_weekly_availability WHERE staff_id = ?',
-    [staffId],
-    (countErr, countRows) => {
-      if (countErr) return callback(countErr);
-      if (!countRows[0] || Number(countRows[0].c) === 0) {
-        return callback(null, true);
+  ensureStaffSchedulingTables((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const leaveQuery = `
+      SELECT 1
+      FROM staff_leave_requests
+      WHERE staff_id = ?
+        AND status = 'approved'
+        AND ? BETWEEN start_date AND end_date
+      LIMIT 1
+    `;
+
+    db.query(leaveQuery, [staffId, appointmentDate], (leaveErr, leaveRows) => {
+      if (leaveErr) return callback(leaveErr);
+      if (leaveRows.length > 0) {
+        return callback(null, false);
       }
 
       const query = `
@@ -437,12 +800,12 @@ const isStaffAvailableForWeeklySchedule = (
         LIMIT 1
       `;
 
-      db.query(query, [staffId, appointmentDate, requestedStartTime, requestedEndTime], (err, rows) => {
+      return db.query(query, [staffId, appointmentDate, requestedStartTime, requestedEndTime], (err, rows) => {
         if (err) return callback(err);
-        callback(null, rows.length > 0);
+        return callback(null, rows.length > 0);
       });
-    }
-  );
+    });
+  });
 };
 
 const getAllStaffRoles = (callback) => {
@@ -471,66 +834,99 @@ const createStaffRole = (roleName, callback) => {
   });
 };
 
-const getAutoAssignableStaff = (appointmentDate, requestedStartTime, requestedEndTime, callback) => {
-  getAvailableStaff(appointmentDate, requestedStartTime, requestedEndTime, (err, result) => {
-    if (err) return callback(err);
+const getAutoAssignableStaff = (
+  appointmentDate,
+  requestedStartTime,
+  requestedEndTime,
+  requestedDurationMinutes,
+  callback
+) => {
+  if (typeof requestedDurationMinutes === 'function') {
+    callback = requestedDurationMinutes;
+    requestedDurationMinutes = 0;
+  }
 
-    const candidates = result.availableStaff || [];
-    if (candidates.length === 0) {
-      return callback(null, null);
+  getAvailableStaff(
+    appointmentDate,
+    requestedStartTime,
+    requestedEndTime,
+    requestedDurationMinutes,
+    (err, result) => {
+      if (err) return callback(err);
+
+      const candidates = result.availableStaff || [];
+      if (candidates.length === 0) {
+        return callback(null, null);
+      }
+
+      const randomIndex = Math.floor(Math.random() * candidates.length);
+      return callback(null, candidates[randomIndex]);
     }
-
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    return callback(null, candidates[randomIndex]);
-  });
+  );
 };
 
 const createLeaveRequest = (staffId, startDate, endDate, reason, callback) => {
-  const query = `
-    INSERT INTO staff_leave_requests (staff_id, start_date, end_date, reason)
-    VALUES (?, ?, ?, ?)
-  `;
-  db.query(query, [staffId, startDate, endDate, reason], (err, result) => {
-    if (err) return callback(err);
-    callback(null, result);
+  ensureStaffLeaveRequestsTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const query = `
+      INSERT INTO staff_leave_requests (staff_id, start_date, end_date, reason)
+      VALUES (?, ?, ?, ?)
+    `;
+    db.query(query, [staffId, startDate, endDate, reason], (err, result) => {
+      if (err) return callback(err);
+      callback(null, result);
+    });
   });
 };
 
 const getLeaveRequestsByStaff = (staffId, callback) => {
-  const query = `
-    SELECT id, start_date, end_date, reason, status, created_at
-    FROM staff_leave_requests
-    WHERE staff_id = ?
-    ORDER BY created_at DESC
-  `;
-  db.query(query, [staffId], (err, results) => {
-    if (err) return callback(err);
-    callback(null, results);
+  ensureStaffLeaveRequestsTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const query = `
+      SELECT id, start_date, end_date, reason, status, created_at
+      FROM staff_leave_requests
+      WHERE staff_id = ?
+      ORDER BY created_at DESC
+    `;
+    db.query(query, [staffId], (err, results) => {
+      if (err) return callback(err);
+      callback(null, results);
+    });
   });
 };
 
 const getAllLeaveRequests = (callback) => {
-  const query = `
-    SELECT lr.id, lr.staff_id, u.name AS staff_name, lr.start_date, lr.end_date, lr.reason, lr.status, lr.created_at
-    FROM staff_leave_requests lr
-    JOIN users u ON u.id = lr.staff_id
-    ORDER BY lr.created_at DESC
-  `;
-  db.query(query, (err, results) => {
-    if (err) return callback(err);
-    callback(null, results);
+  ensureStaffLeaveRequestsTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const query = `
+      SELECT lr.id, lr.staff_id, u.name AS staff_name, lr.start_date, lr.end_date, lr.reason, lr.status, lr.created_at
+      FROM staff_leave_requests lr
+      JOIN users u ON u.id = lr.staff_id
+      ORDER BY lr.created_at DESC
+    `;
+    db.query(query, (err, results) => {
+      if (err) return callback(err);
+      callback(null, results);
+    });
   });
 };
 
 const updateLeaveRequestStatus = (id, status, callback) => {
-  const query = `
-    UPDATE staff_leave_requests
-    SET status = ?
-    WHERE id = ?
-  `;
-  db.query(query, [status, id], (err, result) => {
-    if (err) return callback(err);
-    callback(null, result);
+  ensureStaffLeaveRequestsTable((schemaErr) => {
+    if (schemaErr) return callback(schemaErr);
+
+    const query = `
+      UPDATE staff_leave_requests
+      SET status = ?
+      WHERE id = ?
+    `;
+    db.query(query, [status, id], (err, result) => {
+      if (err) return callback(err);
+      callback(null, result);
+    });
   });
 };
 
@@ -538,10 +934,14 @@ module.exports = {
   getAllStaff,
   getBookableStaff,
   getStaffById,
+  getStaffOrAdminById,
   createStaff,
   updateStaff,
   getAvailableStaff,
   getAutoAssignableStaff,
+  getMaxDailyStaffMinutes,
+  getStaffBookedMinutes,
+  isWithinDailyCapacity,
   getStaffRoleById,
   getAllStaffRoles,
   createStaffRole,

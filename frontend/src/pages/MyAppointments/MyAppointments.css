@@ -1,16 +1,69 @@
 .appointments-page {
   width: 100%;
+  display: grid;
+  gap: 18px;
+  color: #12223b;
+}
+
+.appointments-page-head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: end;
+  padding: 18px;
+  border: 1px solid #d8e8e4;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #f4fbf9 100%);
+}
+
+.appointments-page-head span {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .appointments-page h1 {
-  text-align: center;
-  font-size: 32px;
-  margin-bottom: 30px;
-  color: #333;
+  margin: 4px 0 0;
+  color: #12223b;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.appointment-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.appointment-stats-grid article {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid #dce8f2;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.appointment-stats-grid span {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.appointment-stats-grid strong {
+  color: #0f766e;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .online-payment-banner {
-  margin-bottom: 24px;
   padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid #99f6e4;
@@ -37,7 +90,6 @@
 .filter-buttons {
   display: flex;
   gap: 10px;
-  margin-bottom: 30px;
   flex-wrap: wrap;
 }
 
@@ -64,14 +116,17 @@
 
 .appointments-list {
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .appointment-card {
   background: white;
-  border-radius: 8px;
+  border: 1px solid #dce8f2;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 24px rgba(18, 34, 59, 0.07);
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
@@ -81,9 +136,9 @@
 }
 
 .appointment-header {
-  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  background: linear-gradient(135deg, #0f766e 0%, #174f4a 100%);
   color: white;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -98,7 +153,8 @@
 
 .appointment-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
+  line-height: 1.25;
 }
 
 .payment-success-check {
@@ -154,14 +210,14 @@
 }
 
 .appointment-body {
-  padding: 20px;
+  padding: 16px;
 }
 
 .appointment-info {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-bottom: 15px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .info-row {
@@ -169,8 +225,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px;
-  background: #f5f5f5;
-  border-radius: 4px;
+  background: #f8fbff;
+  border: 1px solid #e3ebf4;
+  border-radius: 10px;
   gap: 12px;
 }
 
@@ -186,10 +243,10 @@
 }
 
 .notes {
-  background: #e3f2fd;
+  background: #eff6ff;
   padding: 15px;
-  border-radius: 4px;
-  border-left: 4px solid #2196f3;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
   color: #1565c0;
   font-size: 14px;
 }
@@ -198,9 +255,8 @@
   margin-top: 14px;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  border-left: 4px solid #2563eb;
   color: #1d4ed8;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
   line-height: 1.5;
@@ -210,16 +266,15 @@
   margin-top: 14px;
   background: #fff8e6;
   border: 1px solid #f9d98c;
-  border-left: 4px solid #f59e0b;
   color: #8a5a00;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
   line-height: 1.5;
 }
 
 .appointment-footer {
-  padding: 20px;
+  padding: 16px;
   border-top: 1px solid #eee;
   display: flex;
   gap: 10px;
@@ -424,10 +479,20 @@
   padding: 40px;
   color: #666;
   background: white;
-  border-radius: 8px;
+  border: 1px solid #dce8f2;
+  border-radius: 14px;
 }
 
 @media (max-width: 768px) {
+  .appointments-page-head,
+  .appointment-info {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .appointments-page h1 {
     font-size: 24px;
   }
@@ -470,5 +535,12 @@
 
   .payment-status-wrap {
     align-self: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .appointment-stats-grid,
+  .appointments-list {
+    grid-template-columns: 1fr;
   }
 }

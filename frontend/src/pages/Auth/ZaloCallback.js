@@ -3,6 +3,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../../services/authService';
 import '../Auth/Auth.css';
 
+const normalizeRoleName = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const getPostLoginPath = (user) => {
+  if (user.role === 'admin') {
+    return '/admin/dashboard';
+  }
+
+  if (user.role === 'staff') {
+    return '/staff/dashboard';
+  }
+
+  return '/';
+};
+
 function ZaloCallback({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,13 +57,7 @@ function ZaloCallback({ onLogin }) {
 
         onLogin(user);
 
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (user.role === 'staff') {
-          navigate('/staff/customers');
-        } else {
-          navigate('/');
-        }
+        navigate(getPostLoginPath(user));
       } catch (err) {
         console.error('[ZALO_CALLBACK_ERROR]', err);
         setError(err?.response?.data?.message || 'Đăng nhập Zalo thất bại. Vui lòng thử lại.');

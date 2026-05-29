@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import paymentService from '../../services/paymentService';
 import './PaymentTransfer.css';
 
-const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
 
 const formatDateTime = (value) => {
   if (!value) {

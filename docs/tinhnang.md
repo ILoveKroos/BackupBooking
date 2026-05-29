@@ -49,7 +49,7 @@
 
 ## 5. Voucher
 
-- Bảng `vouchers`, `voucher_assignments`, `voucher_usage_history`, `voucher_suggestions`.
+- Bảng `vouchers`, `voucher_assignments`.
 - Voucher mẫu:
   - `WELCOME15`: giảm 15%, tối đa 120000 VNĐ.
   - `VIP120K`: giảm cố định 120000 VNĐ cho VIP.
@@ -58,7 +58,7 @@
   - Validate voucher theo khách.
   - Tính discount.
   - Lưu `original_amount`, `voucher_discount`, `voucher_codes`.
-  - Ghi lịch sử sử dụng voucher.
+  - Cập nhật lượt dùng, lần dùng gần nhất và tổng tiền giảm ngay trên `voucher_assignments`.
 
 ## 6. PWA và Mobile UX
 

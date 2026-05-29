@@ -47,12 +47,12 @@ exports.getAvailableStaff = (req, res) => {
   const requestedServiceIds = normalizeSelectedServiceIds(selected_service_ids, serviceIds, serviceId);
 
   if (!date || !time || requestedServiceIds.length === 0) {
-    return res.status(400).json({ message: 'Vui long cung cap ngay, gio va dich vu' });
+    return res.status(400).json({ message: 'Vui lòng cung cấp ngày, giờ và dịch vụ' });
   }
 
   const normalizedTime = normalizeApiTimeString(time);
   if (!normalizedTime) {
-    return res.status(400).json({ message: 'Gio hen khong hop le' });
+    return res.status(400).json({ message: 'Giờ hẹn không hợp lệ' });
   }
 
   serviceModel.getServicesByIds(requestedServiceIds, (serviceErr, services) => {
@@ -69,16 +69,16 @@ exports.getAvailableStaff = (req, res) => {
     const hasInactiveService = orderedServices.some((service) => service.status !== 'active');
 
     if (hasInactiveService) {
-      return res.status(400).json({ message: 'Co dich vu hien khong con hoat dong' });
+      return res.status(400).json({ message: 'Có dịch vụ hiện không còn hoạt động' });
     }
 
     const { totalDuration } = summarizeSelectedServices(orderedServices);
     const requestedEndTime = addMinutesToTimeString(normalizedTime, totalDuration);
     if (!requestedEndTime) {
-      return res.status(400).json({ message: 'Khung gio dat lich khong hop le cho dich vu nay' });
+      return res.status(400).json({ message: 'Khung giờ đặt lịch không hợp lệ cho dịch vụ này' });
     }
 
-    staffModel.getAvailableStaff(date, normalizedTime, requestedEndTime, (err, availability) => {
+    staffModel.getAvailableStaff(date, normalizedTime, requestedEndTime, totalDuration, (err, availability) => {
       if (err) {
         return res.status(500).json({ message: 'Lỗi server', error: err });
       }
@@ -91,6 +91,7 @@ exports.getAvailableStaff = (req, res) => {
           requested_start_time: normalizedTime,
           requested_end_time: requestedEndTime,
           total_duration: totalDuration,
+          max_daily_staff_minutes: staffModel.getMaxDailyStaffMinutes(),
           unavailable_staff: availability.unavailableStaff
         }
       });
@@ -103,7 +104,7 @@ exports.getBusyTimeSlots = (req, res) => {
   const { date } = req.query;
 
   if (!date) {
-    return res.status(400).json({ success: false, message: 'Vui long cung cap ngay can xem lich ban' });
+    return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ngày cần xem lịch bận' });
   }
 
   return staffModel.getStaffById(id, (staffErr, staff) => {
@@ -143,7 +144,7 @@ exports.createStaffRole = (req, res) => {
   const normalizedRole = (role_name || '').trim();
 
   if (!normalizedRole) {
-    return res.status(400).json({ message: 'Vui long nhap ten vai tro' });
+    return res.status(400).json({ message: 'Vui lòng nhập tên vai trò' });
   }
 
   return staffModel.createStaffRole(normalizedRole, (err, result) => {
@@ -153,7 +154,7 @@ exports.createStaffRole = (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Tao vai tro thanh cong',
+      message: 'Tạo vai trò thành công',
       roleId: result.insertId
     });
   });
@@ -163,12 +164,12 @@ exports.createStaff = (req, res) => {
   const { name, email, password, phone, staff_role_id, is_active } = req.body;
 
   if (!name || !email || !password || typeof staff_role_id === 'undefined') {
-    return res.status(400).json({ message: 'Vui long cung cap day du thong tin' });
+    return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin' });
   }
 
   const parsedRoleId = Number(staff_role_id);
   if (!Number.isInteger(parsedRoleId) || parsedRoleId < 0) {
-    return res.status(400).json({ message: 'Vai tro khong hop le' });
+    return res.status(400).json({ message: 'Vai trò không hợp lệ' });
   }
 
   userModel.getUserByEmail(email, async (err, existingUser) => {
@@ -184,7 +185,7 @@ exports.createStaff = (req, res) => {
       typeof is_active === 'undefined' ? true : parseActiveValue(is_active);
 
     if (activeValue === null) {
-      return res.status(400).json({ message: 'is_active khong hop le' });
+      return res.status(400).json({ message: 'Trạng thái hoạt động không hợp lệ' });
     }
 
     let hashedPassword = '';
@@ -245,10 +246,106 @@ const normalizeTimeString = (value) => {
   return null;
 };
 
+const getAllowedShiftWindows = (day) => {
+  if (day >= 0 && day <= 4) {
+    return [
+      { type: 'morning', start: '08:00:00', end: '16:00:00', label: 'ca sáng 08:00-16:00' },
+      { type: 'evening', start: '13:30:00', end: '21:30:00', label: 'ca tối 13:30-21:30' },
+      { type: 'full', start: '08:00:00', end: '21:30:00', label: 'full ca 08:00-21:30' }
+    ];
+  }
+
+  return [
+    { type: 'morning', start: '07:00:00', end: '15:00:00', label: 'ca sáng 07:00-15:00' },
+    { type: 'evening', start: '15:00:00', end: '23:00:00', label: 'ca tối 15:00-23:00' },
+    { type: 'full', start: '07:00:00', end: '23:00:00', label: 'full ca 07:00-23:00' }
+  ];
+};
+
+const WEEKDAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+
+const normalizeWeeklyAvailabilitySlots = (slots) => {
+  if (!Array.isArray(slots)) {
+    return { error: 'slots phải là mảng' };
+  }
+
+  if (slots.length !== 7) {
+    return { error: 'Lịch tuần cần đủ 7 ngày từ Thứ 2 đến Chủ nhật. Ngày nghỉ xử lý bằng yêu cầu xin nghỉ phép.' };
+  }
+
+  const daysSeen = new Set();
+  const normalized = [];
+  const minutesByDay = new Map();
+  const maxDailyMinutes = staffModel.getMaxDailyStaffMinutes();
+
+  for (let i = 0; i < slots.length; i += 1) {
+    const row = slots[i] || {};
+    const day = Number(row.day_of_week);
+    const start = normalizeTimeString(row.start_time);
+    const end = normalizeTimeString(row.end_time);
+
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      return { error: 'day_of_week phải từ 0 đến 6' };
+    }
+
+    if (daysSeen.has(day)) {
+      return { error: 'Mỗi ngày chỉ được phép đăng ký tối đa 1 ca làm việc' };
+    }
+    daysSeen.add(day);
+
+    if (!start || !end) {
+      return { error: 'Giờ bắt đầu / kết thúc không hợp lệ' };
+    }
+
+    if (start >= end) {
+      return { error: 'Giờ kết thúc phải sau giờ bắt đầu' };
+    }
+
+    const allowedShift = getAllowedShiftWindows(day).find(
+      (shift) => shift.start === start && shift.end === end
+    );
+
+    if (!allowedShift) {
+      const allowedLabels = getAllowedShiftWindows(day).map((shift) => shift.label).join(' hoặc ');
+      return { error: `${WEEKDAY_LABELS[day]} chỉ được chọn ${allowedLabels}` };
+    }
+
+    const [startHour, startMinute] = start.split(':').map(Number);
+    const [endHour, endMinute] = end.split(':').map(Number);
+    const slotMinutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+    const nextDayMinutes = (minutesByDay.get(day) || 0) + slotMinutes;
+
+    if (allowedShift.type !== 'full' && nextDayMinutes > maxDailyMinutes) {
+      return {
+        error: `Tổng giờ làm trong một ngày không được vượt quá ${Math.round(maxDailyMinutes / 60)} giờ`
+      };
+    }
+
+    minutesByDay.set(day, nextDayMinutes);
+    normalized.push({ day_of_week: day, start_time: start, end_time: end });
+  }
+
+  return { slots: normalized };
+};
+
+const loadPersonnelOr404 = (id, res, callback) => {
+  staffModel.getStaffOrAdminById(id, (err, person) => {
+    if (err) {
+      return res.status(500).json({ message: 'Lỗi server', error: err });
+    }
+
+    if (!person) {
+      return res.status(404).json({ message: 'Nhân sự không tồn tại' });
+    }
+
+    return callback(person);
+  });
+};
+
 exports.getWeeklyAvailability = (req, res) => {
   const { id } = req.params;
 
-  staffModel.getStaffById(id, (err, staff) => {
+  staffModel.getStaffOrAdminById(id, (err, staff) => {
     if (err) {
       return res.status(500).json({ message: 'Lỗi server', error: err });
     }
@@ -275,7 +372,7 @@ exports.replaceWeeklyAvailability = (req, res) => {
     return res.status(400).json({ message: 'slots phải là mảng' });
   }
 
-  staffModel.getStaffById(id, (err, staff) => {
+  staffModel.getStaffOrAdminById(id, (err, staff) => {
     if (err) {
       return res.status(500).json({ message: 'Lỗi server', error: err });
     }
@@ -284,30 +381,13 @@ exports.replaceWeeklyAvailability = (req, res) => {
       return res.status(404).json({ message: 'Nhân viên không tồn tại' });
     }
 
-    const normalized = [];
+    const normalized = normalizeWeeklyAvailabilitySlots(slots);
 
-    for (let i = 0; i < slots.length; i += 1) {
-      const row = slots[i] || {};
-      const day = Number(row.day_of_week);
-      const start = normalizeTimeString(row.start_time);
-      const end = normalizeTimeString(row.end_time);
-
-      if (!Number.isInteger(day) || day < 0 || day > 6) {
-        return res.status(400).json({ message: 'day_of_week phải từ 0 đến 6' });
-      }
-
-      if (!start || !end) {
-        return res.status(400).json({ message: 'Giờ bắt đầu / kết thúc không hợp lệ' });
-      }
-
-      if (start >= end) {
-        return res.status(400).json({ message: 'Giờ kết thúc phải sau giờ bắt đầu' });
-      }
-
-      normalized.push({ day_of_week: day, start_time: start, end_time: end });
+    if (normalized.error) {
+      return res.status(400).json({ message: normalized.error });
     }
 
-    return staffModel.replaceWeeklyAvailability(id, normalized, (saveErr) => {
+    return staffModel.replaceWeeklyAvailability(id, normalized.slots, (saveErr) => {
       if (saveErr) {
         return res.status(500).json({ message: 'Lỗi server', error: saveErr });
       }
@@ -317,6 +397,40 @@ exports.replaceWeeklyAvailability = (req, res) => {
         message: 'Đã lưu lịch làm việc hàng tuần'
       });
     });
+  });
+};
+
+exports.getMyWeeklyAvailability = (req, res) => {
+  if (!['staff', 'admin'].includes(req.user.role)) {
+    return res.status(403).json({ message: 'Bạn không có quyền đăng ký ca làm' });
+  }
+
+  return staffModel.getWeeklyAvailabilityByStaffId(req.user.id, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ message: 'Lỗi server', error: err });
+    }
+
+    return res.status(200).json({ success: true, data: rows });
+  });
+};
+
+exports.replaceMyWeeklyAvailability = (req, res) => {
+  if (!['staff', 'admin'].includes(req.user.role)) {
+    return res.status(403).json({ message: 'Bạn không có quyền đăng ký ca làm' });
+  }
+
+  const normalized = normalizeWeeklyAvailabilitySlots(req.body.slots);
+
+  if (normalized.error) {
+    return res.status(400).json({ message: normalized.error });
+  }
+
+  return staffModel.replaceWeeklyAvailability(req.user.id, normalized.slots, (err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Lỗi server', error: err });
+    }
+
+    return res.status(200).json({ success: true, message: 'Đã đăng ký ca làm' });
   });
 };
 
@@ -331,7 +445,7 @@ exports.updateStaff = (req, res) => {
     typeof password === 'undefined' &&
     typeof staff_role_id === 'undefined'
   ) {
-    return res.status(400).json({ message: 'Khong co du lieu de cap nhat' });
+    return res.status(400).json({ message: 'Không có dữ liệu để cập nhật' });
   }
 
   staffModel.getStaffById(id, async (err, staff) => {
@@ -349,11 +463,11 @@ exports.updateStaff = (req, res) => {
 
     if (typeof password !== 'undefined') {
       if (typeof password !== 'string' || password.trim().length === 0) {
-        return res.status(400).json({ message: 'Mat khau moi khong duoc de trong' });
+        return res.status(400).json({ message: 'Mật khẩu mới không được để trống' });
       }
 
       if (password.length < 6) {
-        return res.status(400).json({ message: 'Mat khau moi phai it nhat 6 ky tu' });
+        return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
       }
 
       try {
@@ -366,7 +480,7 @@ exports.updateStaff = (req, res) => {
     if (typeof is_active !== 'undefined') {
       const activeValue = parseActiveValue(is_active);
       if (activeValue === null) {
-        return res.status(400).json({ message: 'is_active khong hop le' });
+        return res.status(400).json({ message: 'Trạng thái hoạt động không hợp lệ' });
       }
       payload.is_active = activeValue;
     }
@@ -381,7 +495,7 @@ exports.updateStaff = (req, res) => {
         success: true,
         message:
           typeof password !== 'undefined'
-            ? 'Cap nhat nhan vien va mat khau thanh cong'
+            ? 'Cập nhật nhân viên và mật khẩu thành công'
             : 'Cập nhật nhân viên thành công'
         });
       });
@@ -389,7 +503,7 @@ exports.updateStaff = (req, res) => {
     if (typeof staff_role_id !== 'undefined') {
       const parsedRoleId = Number(staff_role_id);
       if (!Number.isInteger(parsedRoleId) || parsedRoleId < 0) {
-        return res.status(400).json({ message: 'Vai tro khong hop le' });
+        return res.status(400).json({ message: 'Vai trò không hợp lệ' });
       }
 
       return staffModel.getStaffRoleById(parsedRoleId, (roleErr, role) => {

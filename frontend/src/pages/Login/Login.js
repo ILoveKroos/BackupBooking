@@ -23,15 +23,28 @@ function PasswordToggleIcon({ visible }) {
   );
 }
 
+function formatRetryTime(seconds) {
+  if (!seconds || seconds <= 0) return '';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0 && secs > 0) return `${mins} phút ${secs} giây`;
+  if (mins > 0) return `${mins} phút`;
+  return `${secs} giây`;
+}
+
 function getLoginErrorMessage(error) {
   if (!error.response) {
-    return 'Không kết nối được tới máy chủ. Hãy kiểm tra backend có đang chạy không.';
+    return 'Không kết nối được tới máy chủ. Hãy kiểm tra kết nối mạng của bạn.';
   }
 
   const { status, data } = error.response;
 
   if (status === 429) {
-    return 'Bạn đã đăng nhập sai quá nhiều lần. Hãy thử lại sau 15 phút hoặc khởi động lại backend để xóa chặn tạm thời.';
+    const retryAfterSeconds = data?.retryAfterSeconds;
+    const timeStr = formatRetryTime(retryAfterSeconds);
+    return timeStr
+      ? `Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ${timeStr}.`
+      : 'Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ít phút.';
   }
   if (status === 401) {
     return 'Email hoặc mật khẩu không đúng.';
@@ -41,6 +54,25 @@ function getLoginErrorMessage(error) {
   }
   return data?.message || 'Đăng nhập thất bại.';
 }
+
+const normalizeRoleName = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+const getPostLoginPath = (user) => {
+  if (user.role === 'admin') {
+    return '/admin/dashboard';
+  }
+
+  if (user.role === 'staff') {
+    return '/staff/dashboard';
+  }
+
+  return '/';
+};
 
 // ─── PKCE helpers cho Zalo OAuth ─────────────────────────────
 function generateCodeVerifier() {
@@ -63,14 +95,42 @@ function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState(null);
+  const [countdown, setCountdown] = useState('');
   const googleButtonRef = useRef(null);
   const navigate = useNavigate();
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
   const zaloAppId = process.env.REACT_APP_ZALO_APP_ID || '';
   const zaloCallbackUrl = process.env.REACT_APP_ZALO_CALLBACK_URL || '';
+
+  // Countdown timer for rate-limit lockout
+  useEffect(() => {
+    if (!lockedUntil) {
+      setCountdown('');
+      return;
+    }
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setCountdown('');
+        setError('');
+        return;
+      }
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      setCountdown(`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
 
   useEffect(() => {
     if (!googleClientId) {
@@ -95,13 +155,7 @@ function Login({ onLogin }) {
         authService.setUser(user);
         onLogin(user);
 
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (user.role === 'staff') {
-          navigate('/staff/customers');
-        } else {
-          navigate('/');
-        }
+        navigate(getPostLoginPath(user));
       } catch (err) {
         setError(err?.response?.data?.message || 'Đăng nhập Google thất bại.');
       } finally {
@@ -157,18 +211,16 @@ function Login({ onLogin }) {
       const response = await authService.login(normalizedEmail, password);
       const { token, user } = response.data;
 
-      authService.setToken(token);
-      authService.setUser(user);
+      authService.setToken(token, rememberMe);
+      authService.setUser(user, rememberMe);
       onLogin(user);
 
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (user.role === 'staff') {
-        navigate('/staff/customers');
-      } else {
-        navigate('/');
-      }
+      navigate(getPostLoginPath(user));
     } catch (err) {
+      if (err.response?.status === 429) {
+        const retryAfterSeconds = err.response.data?.retryAfterSeconds || 15 * 60;
+        setLockedUntil(Date.now() + retryAfterSeconds * 1000);
+      }
       setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
@@ -199,7 +251,25 @@ function Login({ onLogin }) {
       <div className="auth-card">
         <h1>Đăng nhập</h1>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && (
+          <div className={`alert alert-error${lockedUntil ? ' alert-lockout' : ''}`}>
+            {lockedUntil && (
+              <svg className="lockout-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            )}
+            <div className="lockout-content">
+              <span>{error}</span>
+              {countdown && (
+                <div className="lockout-countdown">
+                  <span className="countdown-label">Thử lại sau</span>
+                  <span className="countdown-timer">{countdown}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -233,8 +303,22 @@ function Login({ onLogin }) {
             </div>
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ width: '18px', height: '18px', accentColor: '#0f766e' }}
+              />
+              <span style={{ fontSize: '14px', color: '#334155', fontWeight: 600 }}>
+                Lưu đăng nhập
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={loading || !!lockedUntil}>
+            {loading ? 'Đang đăng nhập...' : lockedUntil ? `Tạm khóa (${countdown})` : 'Đăng nhập'}
           </button>
         </form>
 
@@ -261,8 +345,8 @@ function Login({ onLogin }) {
                 disabled={loading}
               >
                 <svg className="zalo-icon" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
-                  <circle cx="24" cy="24" r="24" fill="#0068FF"/>
-                  <path d="M12.5 17.8h8.8v1.5H14.7l6.5 9.2v1.7h-8.7v-1.5h6.4l-6.4-9.2v-1.7zm10.3 5.1c0-3.5 2.1-5.4 4.7-5.4 2.6 0 4.7 1.9 4.7 5.4 0 3.5-2.1 5.5-4.7 5.5-2.6 0-4.7-2-4.7-5.5zm1.7 0c0 2.5 1.2 4 3 4s3-1.5 3-4c0-2.4-1.2-3.9-3-3.9s-3 1.5-3 3.9z" fill="#fff"/>
+                  <circle cx="24" cy="24" r="24" fill="#0068FF" />
+                  <path d="M12.5 17.8h8.8v1.5H14.7l6.5 9.2v1.7h-8.7v-1.5h6.4l-6.4-9.2v-1.7zm10.3 5.1c0-3.5 2.1-5.4 4.7-5.4 2.6 0 4.7 1.9 4.7 5.4 0 3.5-2.1 5.5-4.7 5.5-2.6 0-4.7-2-4.7-5.5zm1.7 0c0 2.5 1.2 4 3 4s3-1.5 3-4c0-2.4-1.2-3.9-3-3.9s-3 1.5-3 3.9z" fill="#fff" />
                 </svg>
                 Đăng nhập bằng Zalo
               </button>

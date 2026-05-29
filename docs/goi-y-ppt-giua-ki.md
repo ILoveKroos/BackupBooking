@@ -1,550 +1,159 @@
-# Gợi Ý PPT Giữa Kì - Smart Booking Salon
+# Gợi Ý PPT Báo Cáo - Smart Booking Salon (Bản Chi Tiết)
 
-Tài liệu này được rút ra từ code hiện tại của dự án BeautyBook/Smart Booking Salon. Có thể dùng để làm slide PowerPoint 10-14 trang, thuyết trình khoảng 8-12 phút.
+Tài liệu này cung cấp nội dung chi tiết, các ý chính (bullet points) để đưa lên slide, và kịch bản thuyết trình (những gì sinh viên sẽ nói) cho từng phần.
 
-## 1. Thông Điệp Chính Nên Bám Theo
+---
 
-Đề tài không chỉ là web đặt lịch salon cơ bản. Điểm nổi bật là hệ thống đặt lịch thông minh cho dịch vụ làm đẹp, có phân quyền theo vai trò, quản lý vận hành, thanh toán, voucher, dashboard realtime và các chức năng thông minh như RFM marketing, chống boom lịch, chatbot hỗ trợ đặt lịch.
+## 1. Trình Bày Tổng Quan Đề Tài
 
-Câu mở đầu gợi ý:
+**Tên dự án:** Thiết kế và xây dựng ứng dụng website đặt lịch hẹn trực tuyến kết hợp phân tích dữ liệu hành vi khách hàng.
 
-> Nhóm em xây dựng hệ thống BeautyBook - web đặt lịch dịch vụ làm đẹp. Hệ thống giải quyết bài toán khách đặt lịch online, salon quản lý nhân viên/lịch hẹn/doanh thu, đồng thời bổ sung các tính năng thông minh như phân loại khách hàng RFM, voucher cá nhân hóa, chatbot và cảnh báo rủi ro hủy lịch.
+**A. Lý do chọn đề tài:**
+*   **Thực trạng tại các cơ sở làm đẹp (Salon, Spa, Nail):**
+    *   **Quản lý thủ công:** Ghi chép sổ sách hoặc file Excel dễ dẫn đến sai sót, nhầm lẫn thời gian, trùng lịch nhân viên (đặc biệt trong giờ cao điểm).
+    *   **Trải nghiệm khách hàng kém:** Khách hàng thụ động, phải gọi điện hoặc nhắn tin chờ phản hồi mới biết lịch trống hay giá dịch vụ.
+*   **Rủi ro vận hành (Vấn nạn Boom lịch - No show):**
+    *   Tình trạng khách hàng đặt lịch nhưng không đến làm lãng phí thời gian của nhân viên, từ chối các khách hàng khác, gây thất thoát doanh thu. Các cửa hàng hiện chưa có công cụ đo lường mức độ uy tín của khách.
+*   **Thiếu chiến lược cá nhân hóa (Marketing):**
+    *   Các cơ sở thường áp dụng khuyến mãi đại trà. Dữ liệu khách hàng chưa được khai thác để phân loại và chăm sóc đúng đối tượng (như khách VIP cần tri ân, khách lâu không quay lại cần lôi kéo).
 
-## 2. Dàn Slide Đề Xuất
+**B. Tính cấp thiết của đề tài:**
+*   Chuyển đổi số trong ngành dịch vụ làm đẹp không chỉ dừng lại ở việc "đưa lên online". Hệ thống cần thông minh hơn: ứng dụng phân tích dữ liệu và AI để **tối ưu hóa doanh thu**, **giảm thiểu rủi ro**, và **nâng cao lòng trung thành của khách hàng**.
 
-### Slide 1 - Tiêu Đề
+---
 
-Tiêu đề:
+## 2. Nội Dung, Phạm Vi, Phương Pháp Nghiên Cứu
 
-**BeautyBook - Hệ Thống Đặt Lịch Dịch Vụ Làm Đẹp Thông Minh**
+**A. Nội dung nghiên cứu:**
+*   **Nghiên cứu quy trình nghiệp vụ:** Chuẩn hóa quy trình đặt lịch, thanh toán, quản lý ca làm việc nhân viên của salon.
+*   **Tích hợp thuật toán & AI:**
+    *   Ứng dụng mô hình RFM (Recency - Frequency - Monetary) để phân cụm khách hàng tự động.
+    *   Xây dựng hệ thống tính điểm rủi ro hủy lịch (Cancellation Score).
+    *   Nghiên cứu tích hợp Large Language Model (LLM) qua OpenAI API để tạo Chatbot có khả năng thao tác nghiệp vụ (Function Calling).
 
-Nội dung:
+**B. Phạm vi nghiên cứu:**
+*   **Kiến trúc hệ thống:** Ứng dụng Web Fullstack (Client-Server). Giao diện khách hàng hỗ trợ PWA (Progressive Web App) mang lại trải nghiệm như app điện thoại.
+*   **Công nghệ sử dụng:** ReactJS (Frontend), Node.js/Express (Backend), MySQL (Database), Socket.io (Realtime).
+*   **Giới hạn đề tài:** Tập trung vào mảng dịch vụ làm đẹp (Salon tóc, Spa chăm sóc da).
 
-- Đề tài: Web đặt lịch salon/spa.
-- Công nghệ: React, Node.js/Express, MySQL.
-- Thành viên, lớp, giảng viên, thời gian.
+**C. Phương pháp nghiên cứu:**
+*   **Khảo sát & Thu thập số liệu:** Lấy yêu cầu thực tế từ quy trình vận hành salon.
+*   **Phân tích & Thiết kế hệ thống (UML/ERD):** Vẽ biểu đồ Use-case, luồng dữ liệu tuần tự (Sequence Diagram), thiết kế cơ sở dữ liệu quan hệ (17 bảng).
+*   **Mô hình phát triển:** Phát triển phần mềm theo mô hình linh hoạt (Agile), liên tục kiểm thử và hoàn thiện.
 
-Gợi ý trình bày:
+---
 
-- Nền là ảnh salon/làm đẹp hoặc ảnh chụp trang Home/Booking.
-- Đừng ghi quá nhiều chữ ở slide này.
+## 3. Sản Phẩm Của Đề Tài
 
-### Slide 2 - Lý Do Chọn Đề Tài
+Sản phẩm là hệ thống **BeautyBook v3.0 (Smart Booking AI-Powered)** với các module chi tiết:
 
-Vấn đề thực tế:
+**A. Phân hệ người dùng (4 Vai trò):**
+1.  **Khách hàng (Customer):** Đăng ký/Đăng nhập, xem dịch vụ theo danh mục, đặt lịch (chọn ngày/giờ/nhân viên/nhiều dịch vụ), ví Voucher, theo dõi lịch sử và hóa đơn, thanh toán online (VNPay/VietQR).
+2.  **Nhân viên (Staff):** Xem lịch làm việc cá nhân, theo dõi lịch hẹn được phân công, đánh dấu hoàn thành dịch vụ, gửi yêu cầu nghỉ phép.
+3.  **Thu ngân (Cashier):** Quản lý lịch hẹn tổng thể trong ngày, hỗ trợ check-in, đối soát và xác nhận thanh toán.
+4.  **Quản trị viên (Admin):** Quản lý danh mục, dịch vụ, nhân viên, ca làm việc, khách hàng, voucher. Xem Dashboard thống kê tổng quan.
 
-- Khách phải gọi điện/nhắn tin để hỏi dịch vụ, giờ trống, nhân viên trống.
-- Salon dễ bị trùng lịch nhân viên nếu quản lý thủ công.
-- Khách hủy lịch sát giờ làm giảm hiệu suất vận hành.
-- Admin khó theo dõi doanh thu, lịch hẹn, khách hàng thân thiết.
-- Marketing voucher thường chưa cá nhân hóa theo hành vi khách hàng.
+**B. Ba tính năng "Thông minh" cốt lõi (Điểm nhấn đề tài):**
+1.  **Hệ thống phân tích rủi ro (Cancellation Score):**
+    *   Thuật toán đánh giá khách hàng dựa trên: Lịch sử hủy lịch (40%), Đặt sát giờ (20%), Điểm thành viên (20%), Số lần No-show (10%), Ngày cuối tuần (10%).
+    *   *Kết quả:* Nếu điểm > 70/100, hệ thống tự động khóa phương thức thanh toán tiền mặt và yêu cầu phải đặt cọc (Deposit) 20% - 30% qua mạng để giữ chỗ.
+2.  **Marketing tự động (Mô hình RFM):**
+    *   Hệ thống chạy ngầm hàng đêm (Cron Job lúc 03:00 sáng). Đánh giá khách dựa trên: Lần cuối sử dụng dịch vụ, Tần suất, Tổng tiền.
+    *   *Kết quả:* Tự động gắn nhãn khách hàng (Ví dụ: Champions, At Risk) và tự động cấp phát các loại Voucher tương ứng vào ví khách hàng.
+3.  **AI Chatbot (Function Calling + Sentiment Analysis):**
+    *   Không chỉ là chatbot hỏi đáp FAQ (hỏi đáp theo kịch bản).
+    *   *Kết quả:* AI có khả năng nhận diện cảm xúc khách hàng (hài lòng/phàn nàn), trực tiếp truy vấn cơ sở dữ liệu để tìm giờ trống và "tạo lịch hẹn thay" cho khách hàng qua khung chat.
 
-Mục tiêu hệ thống:
+---
 
-- Cho khách tự xem dịch vụ và đặt lịch online.
-- Hỗ trợ salon quản lý dịch vụ, nhân viên, khách hàng, lịch hẹn.
-- Cung cấp dashboard thống kê và cập nhật realtime.
-- Thêm các tính năng thông minh để tăng trải nghiệm và giảm rủi ro vận hành.
+## 4. Kế Hoạch Thực Hiện
 
-### Slide 3 - Đối Tượng Sử Dụng Và Phân Quyền
+*(Có thể trình bày dưới dạng Gantt Chart hoặc Timeline các tuần)*
 
-Các vai trò chính:
+*   **Tuần 1-2:** Khảo sát yêu cầu, thiết kế kiến trúc phần mềm, xây dựng tài liệu thiết kế (ERD, Mockup UI).
+*   **Tuần 3-5:** Xây dựng cơ sở dữ liệu (MySQL), tạo bộ API Backend cơ bản (Auth, CRUD) và giao diện Admin Dashboard.
+*   **Tuần 6-8:** Phát triển luồng nghiệp vụ cốt lõi: Đặt lịch (kiểm tra trùng lặp), phân công nhân viên, tích hợp thanh toán (VNPay/VietQR).
+*   **Tuần 9-11:** Nghiên cứu và triển khai các thuật toán thông minh: Mô hình RFM, Cancellation Score, tích hợp OpenAI Chatbot.
+*   **Tuần 12-14:** Triển khai WebSocket (Realtime Dashboard), kiểm thử (Testing), sửa lỗi (Bug fixing) và hoàn thiện báo cáo.
 
-- Customer: đăng ký/đăng nhập, xem dịch vụ, đặt lịch, dùng voucher, thanh toán, xem lịch, yêu cầu hủy, đánh giá nhân viên, chat với bot.
-- Staff: xem lịch được phân công, xử lý lịch hẹn, gửi yêu cầu hủy nếu cần.
-- Thu ngân: staff có role riêng, có thể hỗ trợ xử lý lịch/khách và xác nhận thanh toán VietQR.
-- Admin: quản lý toàn bộ hệ thống, dashboard, dịch vụ, nhân viên, lịch làm việc, khách hàng, voucher, lịch hẹn.
+---
 
-Code liên quan:
+## 5. Tiến Độ Thực Hiện Hiện Tại (So Với Kế Hoạch)
 
-- `frontend/src/App.js`: chia route theo role.
-- `backend/src/middleware/authMiddleware/index.js`: xác thực JWT và kiểm tra role.
-- `backend/src/routes/*/index.js`: định nghĩa quyền truy cập API.
+**A. Đã làm được (~98% khối lượng công việc):**
+*   **Hoàn thiện nền tảng Fullstack:** Toàn bộ luồng đặt lịch, thanh toán, quản lý khách hàng/nhân sự/dịch vụ đã hoạt động trơn tru.
+*   **Tích hợp công nghệ Realtime:** Dashboard của quản trị viên và thu ngân tự động nhảy số, nhảy biểu đồ khi có đơn đặt lịch mới (nhờ Socket.io) mà không cần reload trang.
+*   **Chạy tự động các tiến trình (Background Jobs):** Mô hình tính điểm rủi ro (Cancellation Score) và phân loại khách hàng (RFM) tính toán chính xác dữ liệu thực tế.
+*   **AI Chatbot:** Hoạt động ổn định với tính năng gợi ý câu hỏi (Suggestions) và gọi hàm tạo đặt lịch.
 
-Gợi ý nói:
+**B. Chưa làm được / Dự kiến nâng cấp:**
+*   Chưa triển khai (Deploy) chính thức lên máy chủ Cloud (hiện vẫn đang demo trên Localhost).
+*   Chưa tích hợp gửi thông báo đa kênh qua Zalo ZNS hoặc SMS (hiện mới hỗ trợ qua thông báo Realtime trong app và hệ thống cảnh báo).
 
-> Hệ thống dùng JWT để xác thực. Sau khi đăng nhập, frontend điều hướng theo role. Backend tiếp tục kiểm tra quyền ở middleware để tránh việc người dùng gọi API trái phép.
+**C. Khó khăn gặp phải:**
+1.  **Bài toán xử lý trùng lịch nhân viên:** Khách hàng có thể chọn *nhiều dịch vụ cùng lúc*, hệ thống phải cộng dồn thời lượng từng dịch vụ, kiểm tra khoảng thời gian đó nhân viên có bị vướng lịch của khách khác hoặc trùng vào giờ nghỉ phép hay không. Việc truy vấn SQL ở phần này khá phức tạp.
+2.  **Tối ưu AI Chatbot:** Cần tinh chỉnh Prompt (câu lệnh hướng dẫn AI) rất kỹ để bot không "ảo giác", chỉ trả lời về dịch vụ làm đẹp và tuân thủ đúng định dạng dữ liệu truyền vào API.
+3.  **Bảo mật API:** Việc mở API cho WebApp dễ bị spam, phải thiết lập cơ chế Rate-Limit (giới hạn truy cập) để bảo vệ hệ thống.
 
-### Slide 4 - Công Nghệ Sử Dụng
+---
 
-Frontend:
+## 6. Tài Liệu Tham Khảo
 
-- React 18.
-- React Router v6.
-- Axios.
-- Chart.js, react-chartjs-2.
-- Socket.io client.
-- PWA: manifest và service worker.
-- xlsx để hỗ trợ xuất dữ liệu Excel.
+1. Tài liệu chính thức React.js (react.dev) và Node.js (nodejs.org).
+2. Tài liệu thiết kế API RESTful và xác thực bảo mật JWT (JSON Web Tokens).
+3. "RFM Analysis for Customer Segmentation" - Các nghiên cứu chuyên sâu về phân tích hành vi khách hàng trong Marketing.
+4. Tài liệu lập trình Realtime với Socket.io.
+5. Tài liệu tích hợp thanh toán mã QR: VietQR Open API và VNPay API Documentation.
+6. Hướng dẫn sử dụng tính năng Function Calling của OpenAI API.
 
-Backend:
+---
 
-- Node.js, Express.js.
-- MySQL/MySQL2.
-- JWT, bcryptjs.
-- express-validator.
-- express-rate-limit.
-- multer upload ảnh.
-- node-cron.
-- nodemailer.
-- socket.io.
-- OpenAI API tùy chọn cho chatbot.
+## 7. Kịch Bản Demo Sản Phẩm (Dành Cho Buổi Báo Cáo)
 
-Database:
+**Bước 1: Trải nghiệm khách hàng (Customer Flow) - [3 phút]**
+*   Trình chiếu giao diện PWA khách hàng cực kỳ trực quan.
+*   Khách hàng đăng nhập, chọn 3 dịch vụ làm đẹp (Cắt tóc, Gội đầu, Uốn), chọn ngày, chọn nhân viên yêu thích.
+*   *Nhấn mạnh tính năng hủy lịch:* Dùng 1 tài khoản có lịch sử hủy nhiều lần, lúc đặt lịch hệ thống sẽ bật cảnh báo "Rủi ro cao" và vô hiệu hóa nút "Thanh toán tại quán", bắt buộc quét mã VietQR/VNPay đặt cọc trước 30%.
+*   Tiến hành thanh toán và xem lịch sử đơn.
 
-- MySQL database `booking_system`.
-- Charset `utf8mb4`, hỗ trợ tiếng Việt.
-- Có 17 bảng chính trong `database/recreate_booking_system.sql`.
+**Bước 2: Trải nghiệm Trợ lý ảo (AI Chatbot) - [2 phút]**
+*   Vào trang Chat, gõ: *"Cuối tuần này tôi muốn làm tóc, salon còn giờ nào và có nhân viên nào giỏi không?"*
+*   Chatbot tự động tìm thông tin trong DB, phản hồi và hiển thị Form cho phép chốt lịch ngay trong khung chat.
 
-### Slide 5 - Kiến Trúc Tổng Quan
+**Bước 3: Trải nghiệm Admin & Dashboard Realtime - [2 phút]**
+*   Mở trình duyệt Admin. Để song song 2 màn hình (1 của Admin, 1 của Khách).
+*   Bên khách bấm nút "Hủy lịch hẹn" vừa đặt. Ngay lập tức màn hình Admin hiện thông báo chớp nháy (Notification) và biểu đồ "Tỷ lệ hủy" tăng vọt lên mà Admin không hề chạm vào chuột (Tính năng Realtime).
 
-Sơ đồ nên vẽ:
-
-```text
-React Frontend
-  -> Axios REST API
-  -> Express Routes
-  -> Controllers
-  -> Models
-  -> MySQL
-
-Socket.io
-  -> Dashboard realtime
-
-node-cron
-  -> Reminder job
-  -> RFM job
-
-ChatBot
-  -> Rule engine / OpenAI optional
-  -> Tool registry
-  -> Booking/service data
-```
-
-Ý chính:
-
-- Frontend chỉ gọi API qua service layer trong `frontend/src/services`.
-- Backend chia rõ `routes`, `controllers`, `models`, `services`, `jobs`, `utils`.
-- Database lưu dữ liệu nghiệp vụ.
-- Socket.io dùng để đẩy cập nhật dashboard.
-- Cron job chạy nền cho nhắc lịch và phân loại RFM.
-
-Code liên quan:
-
-- `backend/src/app.js`.
-- `backend/src/server.js`.
-- `docs/kientruc.md`.
-
-### Slide 6 - Cơ Sở Dữ Liệu
-
-Nhóm bảng chính:
-
-- Người dùng: `users`, `staff_role`.
-- Dịch vụ: `services`, `service_category`.
-- Lịch hẹn: `appointments`, `appointment_services`.
-- Thanh toán: `payments`.
-- Voucher: `vouchers`, `voucher_assignments`, `voucher_usage_history`, `voucher_suggestions`.
-- Chatbot: `chat_conversations`, `chat_messages`, `chat_suggestions`, `chat_faq`, `chat_bot_responses`.
-- Lịch làm việc nhân viên: `staff_weekly_availability`.
-
-Quan hệ chính:
-
-```text
-users 1-n appointments
-services 1-n appointments
-appointments 1-n appointment_services
-appointments 1-n payments
-users(customer) 1-n voucher_assignments
-vouchers 1-n voucher_assignments
-chat_conversations 1-n chat_messages
-```
-
-Điểm nên nhấn:
-
-- `appointment_services` hỗ trợ một lịch có nhiều dịch vụ.
-- `staff_weekly_availability` giúp kiểm tra nhân viên có làm trong khung giờ khách chọn.
-- `appointments` lưu thêm `cancellation_score`, `deposit_required`, `deposit_amount`, `voucher_discount`.
-- Các index quan trọng giúp truy vấn lịch, voucher, chat nhanh hơn.
-
-### Slide 7 - Luồng Đặt Lịch Của Khách Hàng
-
-Luồng nghiệp vụ:
-
-1. Khách đăng nhập.
-2. Vào trang dịch vụ hoặc trang đặt lịch.
-3. Chọn một hoặc nhiều dịch vụ.
-4. Chọn ngày, giờ, nhân viên hoặc để hệ thống tự phân công.
-5. Chọn voucher nếu có.
-6. Hệ thống kiểm tra nhân viên trống, lịch làm việc tuần và trùng lịch.
-7. Hệ thống tính tổng tiền, tổng thời lượng, điểm rủi ro hủy lịch.
-8. Tạo lịch hẹn trạng thái `pending`.
-9. Tạo payment record theo phương thức thanh toán.
-10. Dashboard admin nhận sự kiện realtime.
-
-Code liên quan:
-
-- `frontend/src/pages/Booking/Booking.js`.
-- `frontend/src/services/bookingService.js`.
-- `backend/src/controllers/appointmentController/index.js`.
-- `backend/src/models/appointmentModel/index.js`.
-- `backend/src/services/cancellationScoreService/index.js`.
-
-Điểm nổi bật để nói:
+**Bước 4: Marketing tự động (RFM & Voucher) - [2 phút]**
+*   Admin vào tab Quản lý khách hàng, show ra danh sách khách đã được dán nhãn tự động ("VIP", "Nguy cơ rời bỏ").
+*   Mở phần Voucher, chứng minh các Voucher đã được nhắm mục tiêu chuẩn xác đẩy thẳng vào ví khách hàng thuộc nhóm cần chăm sóc.
 
-> Khi đặt lịch, hệ thống không chỉ lưu ngày giờ. Backend còn tính tổng thời lượng của nhiều dịch vụ, kiểm tra xung đột theo khoảng thời gian, kiểm tra lịch làm việc nhân viên, áp voucher, tính điểm rủi ro hủy và yêu cầu cọc nếu cần.
+---
 
-### Slide 8 - Module Quản Trị
+## 8. Dự Trù Những Câu Hỏi Do Hội Đồng Hỏi
 
-Admin có thể:
+*(Đọc kỹ để chuẩn bị câu trả lời lưu loát nhất)*
 
-- Xem dashboard điều hành.
-- Quản lý dịch vụ và danh mục.
-- Quản lý lịch hẹn.
-- Quản lý nhân viên, vai trò nhân viên, lịch làm việc tuần, nghỉ phép.
-- Quản lý khách hàng.
-- Quản lý voucher.
-- Xem analytics: booking, doanh thu, khách hàng, trạng thái lịch.
+**Câu 1: Điểm rủi ro hủy lịch (Cancellation Score) hoạt động cụ thể như thế nào? Có cơ sở khoa học hay tự nhóm nghĩ ra?**
+*   *Trả lời:* Hệ thống tính điểm dựa trên 5 tham số có trọng số: Tỷ lệ hủy trước đây (40%), Đặt sát giờ - dưới 2 tiếng (20%), Xếp hạng khách hàng RFM (20%), Lịch sử vắng mặt không báo trước (10%) và Yếu tố ngày cuối tuần đông khách (10%). Công thức này được nhóm nghiên cứu dựa trên các bài toán quản lý rủi ro trong ngành nhà hàng/khách sạn và điều chỉnh riêng cho salon. Nếu tổng điểm > 70, khách phải thanh toán cọc online.
 
-Code liên quan:
+**Câu 2: Làm thế nào hệ thống đảm bảo 2 khách hàng không đặt trùng 1 nhân viên cùng 1 lúc?**
+*   *Trả lời:* Backend của em không chỉ lưu "Giờ bắt đầu" mà còn tính toán "Giờ kết thúc" (Bằng Giờ bắt đầu + Tổng thời lượng các dịch vụ đã chọn). Khi lưu dữ liệu, hệ thống sử dụng thuật toán kiểm tra xung đột thời gian (Time Conflict Check) truy vấn SQL xem khoảng thời gian từ `[Bắt đầu] -> [Kết thúc]` của nhân viên đó có giao với bất kỳ lịch hẹn nào đang `Pending` hoặc `Confirmed` hay không. Ngoài ra, Database cũng thiết lập Index để tăng tốc độ truy vấn này.
 
-- `frontend/src/pages/admin/Dashboard/Dashboard.js`.
-- `frontend/src/pages/admin/ManageServices/ManageServices.js`.
-- `frontend/src/pages/admin/ManageAppointments/ManageAppointments.js`.
-- `frontend/src/pages/admin/ManageStaff/ManageStaff.js`.
-- `frontend/src/pages/admin/ManageCustomers/ManageCustomers.js`.
-- `frontend/src/pages/admin/ManageVouchers/ManageVouchers.js`.
-- `backend/src/controllers/dashboardController/index.js`.
+**Câu 3: Mô hình RFM chạy bằng cách nào? Có tốn tài nguyên server không?**
+*   *Trả lời:* Việc phân tích RFM đòi hỏi duyệt qua toàn bộ lịch sử thanh toán và đặt lịch của khách hàng, vì vậy nó rất tốn tài nguyên. Để giải quyết, nhóm không tính RFM mỗi khi khách vào xem, mà sử dụng thư viện `node-cron` tạo một Background Job (Tiến trình chạy ngầm). Cron job này được cài đặt chỉ chạy vào lúc 03:00 sáng hàng ngày - lúc server ít truy cập nhất, để cập nhật điểm RFM cho toàn bộ DB một lần duy nhất.
 
-Gợi ý demo:
+**Câu 4: AI Chatbot của em gọi API từ OpenAI, vậy nhược điểm của nó là gì?**
+*   *Trả lời:* Nhược điểm thứ nhất là độ trễ (Latency), đôi khi mất 2-3 giây để API trả lời. Nhược điểm thứ hai là phụ thuộc vào mạng internet và chi phí sử dụng API. Nhược điểm thứ ba là hiện tượng "ảo giác" (Hallucination) - AI có thể trả lời sai nếu không được cấp Context (Ngữ cảnh) đầy đủ. Nhóm đã khắc phục bằng cách cấu hình Prompt rất chặt chẽ, đóng khung vai trò chỉ là "Trợ lý Salon", nếu khách hỏi về chính trị/xã hội, AI sẽ từ chối trả lời.
 
-- Đăng nhập admin.
-- Mở Dashboard.
-- Chuyển qua Quản lý lịch hẹn.
-- Cập nhật trạng thái một lịch.
-- Quay lại Dashboard để thấy dữ liệu được làm mới.
+**Câu 5: Dashboard realtime của em dùng cơ chế gì? Nếu mất kết nối mạng thì sao?**
+*   *Trả lời:* Nhóm sử dụng thư viện `Socket.io` chạy trên nền công nghệ WebSocket. Khi có sự kiện (như thanh toán thành công), Server gửi Event đẩy sang Client thay vì Client phải gọi lên hỏi (Polling). Nếu Client bị đứt cáp/mất mạng, hệ thống có cơ chế "Fallback" (dự phòng) tự động chuyển sang gọi HTTP API chu kỳ 30 giây/lần để đảm bảo dữ liệu không bị lỗi thời, và tự nối lại Socket khi có mạng.
 
-### Slide 9 - Dashboard Realtime Và Thống Kê
+**Câu 6: Em quản lý bảo mật phân quyền trong dự án như thế nào?**
+*   *Trả lời:* Hệ thống sử dụng JWT (JSON Web Token) cho xác thực. Phía Frontend ẩn/hiện menu dựa vào role của Token. Phía Backend quan trọng hơn, nhóm thiết kế các `Middleware` kiểm tra Token ở mọi API (trừ API public). Nếu Nhân viên (Staff) cố tình gọi API xóa dịch vụ của Admin bằng công cụ như Postman, Middleware sẽ chặn lại và trả về lỗi 403 Forbidden. Mật khẩu khách hàng cũng được mã hóa một chiều bằng chuỗi Hash (Bcrypt) trước khi lưu vào Database.
 
-Thống kê đang có:
-
-- Tổng booking.
-- Tổng doanh thu.
-- Tổng khách hàng.
-- Dịch vụ phổ biến.
-- Booking theo tháng.
-- Doanh thu theo tháng.
-- Top dịch vụ.
-- Tỷ lệ hủy lịch.
-- Hoa hồng nhân viên theo tháng.
-- Phân tích hành vi khách hàng mức MVP.
-
-Realtime:
-
-- Backend tạo HTTP server + Socket.io trong `backend/src/server.js`.
-- Admin client emit `join-admin`.
-- Backend phát event `dashboard:update`.
-- Frontend nhận event và tự gọi lại API dashboard.
-- Nếu socket lỗi, frontend fallback polling.
-
-Code liên quan:
-
-- `backend/src/server.js`.
-- `backend/src/utils/realtime/index.js`.
-- `frontend/src/services/dashboardRealtimeService.js`.
-- `frontend/src/pages/admin/Dashboard/Dashboard.js`.
-
-Gợi ý nói:
-
-> Realtime giúp admin không cần refresh tay. Khi có lịch mới, cập nhật trạng thái hoặc thanh toán, backend phát sự kiện để dashboard tự tải lại dữ liệu.
-
-### Slide 10 - Voucher Và Marketing Cá Nhân Hóa
-
-Chức năng voucher:
-
-- Admin tạo/sửa/tắt voucher.
-- Gán voucher cho một hoặc nhiều khách hàng.
-- Có thể gửi email voucher cho khách.
-- Khách xem voucher của mình.
-- Booking validate voucher theo khách, hạn dùng, số lượt dùng, giá trị đơn tối thiểu, loại khách.
-- Khi dùng voucher, hệ thống ghi lịch sử sử dụng.
-
-RFM marketing:
-
-- Recency: khách quay lại gần hay lâu.
-- Frequency: số lần sử dụng dịch vụ.
-- Monetary: tổng chi tiêu.
-- Phân nhóm: Champions, Loyal Customers, Potential Loyalists, At Risk, Lost Customers, New Customers, Need Attention.
-- Cron job chạy hằng ngày lúc 03:00.
-- Có logic tạo voucher comeback cho khách At Risk và voucher VIP cho Champions.
-
-Code liên quan:
-
-- `backend/src/services/voucherService/index.js`.
-- `backend/src/controllers/voucherController/index.js`.
-- `backend/src/services/rfmService/index.js`.
-- `backend/src/jobs/rfmClassificationJob.js`.
-- `frontend/src/pages/MyVouchers/MyVouchers.js`.
-- `frontend/src/pages/admin/ManageVouchers/ManageVouchers.js`.
-
-### Slide 11 - Chống Boom Lịch Bằng Cancellation Score
-
-Ý tưởng:
-
-Hệ thống tính điểm rủi ro hủy lịch của khách trước khi đặt. Nếu điểm cao, hệ thống yêu cầu đặt cọc online để giữ chỗ.
-
-Các yếu tố tính điểm trong code:
-
-- Lịch sử hủy: 40%.
-- Đặt sát giờ: 20%.
-- Phân khúc khách hàng/RFM segment: 20%.
-- Ngày trong tuần: 10%.
-- Số lần no-show: 10%.
-
-Quy tắc:
-
-- Điểm từ 0-100.
-- Nếu điểm lớn hơn 70: yêu cầu đặt cọc.
-- Nếu điểm lớn hơn 85: cọc 30%.
-- Nếu điểm từ 71-85: cọc 20%.
-
-Code liên quan:
-
-- `backend/src/services/cancellationScoreService/index.js`.
-- `backend/src/controllers/appointmentController/index.js`.
-- `frontend/src/pages/Booking/Booking.js`.
-
-Gợi ý nói:
-
-> Đây là phần thông minh của đề tài. Thay vì mọi khách đều đặt lịch giống nhau, hệ thống dựa vào hành vi trước đó để quyết định có cần cọc hay không.
-
-### Slide 12 - Thanh Toán Và Hóa Đơn
-
-Phương thức hỗ trợ trong code:
-
-- `cash`: thanh toán tại salon.
-- `vietqr`: chuyển khoản ngân hàng bằng QR.
-- `vnpay`: thanh toán qua cổng VNPay nếu cấu hình đủ biến môi trường.
-
-Luồng chính:
-
-1. Sau khi booking được tạo, frontend gọi API tạo payment.
-2. Backend kiểm tra chủ lịch, trạng thái lịch, số tiền cần thanh toán.
-3. Nếu lịch cần cọc, backend từ chối `cash`.
-4. Với VietQR, frontend mở trang QR chuyển khoản.
-5. Với VNPay, backend tạo link thanh toán và xử lý return/IPN.
-6. Khi thanh toán thành công, payment chuyển sang `paid`.
-7. Khách có thể xem bill/invoice.
-
-Code liên quan:
-
-- `backend/src/controllers/paymentController/index.js`.
-- `backend/src/models/paymentModel/index.js`.
-- `backend/src/utils/vnpay/index.js`.
-- `backend/src/utils/vietqr/index.js`.
-- `frontend/src/pages/PaymentTransfer/PaymentTransfer.js`.
-- `frontend/src/pages/PaymentReturn/PaymentReturn.js`.
-- `frontend/src/pages/PaymentInvoice/PaymentInvoice.js`.
-
-### Slide 13 - Chatbot Hỗ Trợ Khách Hàng
-
-Khả năng:
-
-- Tạo hội thoại và lưu tin nhắn.
-- Gợi ý câu hỏi nhanh.
-- Tìm FAQ.
-- Trả lời rule-based bằng dữ liệu dịch vụ/FAQ.
-- Nếu có `OPENAI_API_KEY`, dùng OpenAI để trả lời thông minh hơn.
-- Có tool/function calling cho các tác vụ: kiểm tra lịch trống, xem dịch vụ, tạo booking, xem lịch hẹn, hủy lịch, xem khuyến mãi, xem nhân viên, giờ làm việc.
-- Có sentiment: positive, neutral, negative, complaint.
-- Nếu khách phàn nàn, hội thoại có thể được đánh dấu `escalated`.
-
-Code liên quan:
-
-- `frontend/src/pages/ChatBot/ChatBot.js`.
-- `backend/src/controllers/chatController/index.js`.
-- `backend/src/utils/chatResponseEngine/index.js`.
-- `backend/src/utils/openAiChat/index.js`.
-- `backend/src/utils/toolRegistry/index.js`.
-
-Gợi ý demo:
-
-- Hỏi: "Có dịch vụ cắt tóc không?"
-- Hỏi: "Cho mình xem lịch hẹn của mình."
-- Nếu cấu hình OpenAI chưa ổn, demo phần gợi ý/FAQ/rule-based sẽ an toàn hơn.
-
-### Slide 14 - Bảo Mật, Kiểm Tra Dữ Liệu Và Ổn Định Hệ Thống
-
-Các điểm đã có:
-
-- JWT authentication.
-- Mật khẩu hash bằng bcrypt.
-- Middleware phân quyền admin/staff/customer.
-- `express-validator` kiểm tra input.
-- `express-rate-limit` giới hạn request chung và login.
-- CORS whitelist theo frontend URL.
-- Security headers cơ bản.
-- Không cho staff thường thao tác lịch của nhân viên khác.
-- Upload avatar giới hạn dung lượng và loại file.
-- Database có index cho truy vấn lịch/voucher/chat.
-
-Code liên quan:
-
-- `backend/src/middleware/authMiddleware/index.js`.
-- `backend/src/middleware/validationMiddleware/index.js`.
-- `backend/src/app.js`.
-- `backend/database/migration_phase1_security.sql`.
-
-Gợi ý nói:
-
-> Với đồ án giữa kì, nhóm đã quan tâm tới bảo mật ở mức nền tảng: xác thực token, phân quyền theo role, hash mật khẩu, validate input và giới hạn request đăng nhập.
-
-### Slide 15 - Kết Quả Hiện Tại
-
-Có thể nói theo dạng checklist:
-
-- Đã hoàn thành cấu trúc fullstack React + Express + MySQL.
-- Có 3 vai trò chính: customer, staff, admin; thêm staff role thu ngân.
-- Khách có thể xem dịch vụ, đặt lịch, dùng voucher, thanh toán, xem lịch, hủy/đánh giá.
-- Admin có dashboard, quản lý dịch vụ, lịch hẹn, nhân viên, khách hàng, voucher.
-- Có PWA và bottom navigation cho mobile.
-- Có job nhắc lịch và job RFM.
-- Có dashboard realtime bằng Socket.io.
-- Có chatbot rule-based/OpenAI optional.
-
-Số liệu từ codebase:
-
-- Backend `src`: khoảng 56 file.
-- Frontend `src`: khoảng 102 file.
-- Frontend pages: khoảng 51 file JS.
-- API routes: khoảng 81 route.
-- Database chính: 17 bảng.
-
-### Slide 16 - Hạn Chế Và Hướng Phát Triển
-
-Hạn chế nên nói trung thực:
-
-- Chưa deploy cloud, hiện chạy local.
-- Thanh toán online cần cấu hình thật các biến môi trường VNPay/VietQR trước khi demo end-to-end.
-- Chatbot AI cần `OPENAI_API_KEY`; nếu không có thì dùng rule-based/fallback.
-- Cần test kỹ toàn bộ luồng booking, payment, voucher, RFM bằng dữ liệu thật.
-- Chưa có test tự động đầy đủ.
-
-Hướng phát triển:
-
-- Deploy production.
-- Thêm test tự động với Jest/Supertest.
-- Thêm Swagger/OpenAPI cho backend.
-- Tối ưu dashboard bằng một endpoint tổng hợp hoặc cache.
-- Thêm audit log cho hành động admin/staff.
-- Hoàn thiện notification qua email/Zalo/push.
-- Chuẩn hóa đa ngôn ngữ/tiếng Việt có dấu toàn bộ UI.
-
-## 3. Kịch Bản Demo Gợi Ý
-
-Demo an toàn nhất trong 3-5 phút:
-
-1. Trang Home/Services: cho thấy danh sách dịch vụ.
-2. Đăng nhập khách hàng.
-3. Đặt lịch:
-   - chọn nhiều dịch vụ,
-   - chọn ngày/giờ,
-   - chọn hoặc bỏ trống nhân viên để hệ thống tự sắp xếp,
-   - áp voucher nếu tài khoản có voucher,
-   - tạo payment record.
-4. Vào "Lịch hẹn của tôi":
-   - xem trạng thái,
-   - xem thanh toán,
-   - gửi yêu cầu hủy hoặc đánh giá nếu lịch completed.
-5. Đăng nhập admin:
-   - xem dashboard,
-   - xem quản lý lịch hẹn,
-   - cập nhật trạng thái lịch.
-6. Mở chatbot:
-   - hỏi dịch vụ/giá,
-   - thử câu hỏi lịch hẹn hoặc FAQ.
-
-Nên chuẩn bị sẵn:
-
-- Tài khoản admin, customer, staff.
-- Một vài dịch vụ active có ảnh đẹp.
-- Một vài lịch completed/pending/confirmed.
-- Một voucher đã gán cho khách demo.
-- Một payment đã paid nếu muốn demo bill.
-
-## 4. Câu Hỏi Giảng Viên Có Thể Hỏi Và Cách Trả Lời
-
-### Vì sao dùng React + Express + MySQL?
-
-React phù hợp xây UI động, chia component và route rõ ràng. Express nhẹ, dễ xây REST API theo module. MySQL phù hợp dữ liệu quan hệ như người dùng, lịch hẹn, dịch vụ, thanh toán, voucher.
-
-### Làm sao chống đặt trùng lịch nhân viên?
-
-Backend kiểm tra xung đột theo `staff_id`, ngày, giờ bắt đầu và giờ kết thúc. Với lịch nhiều dịch vụ, hệ thống tính tổng thời lượng để ra `end_time`, sau đó so với các lịch pending/confirmed hiện có. Ngoài ra có index/constraint hỗ trợ ở DB.
-
-### Staff có thể sửa lịch của người khác không?
-
-Admin có quyền toàn bộ. Thu ngân có quyền vận hành rộng hơn. Staff thường chỉ được xem/cập nhật lịch được phân công cho chính họ. Logic này nằm trong `canManageAppointment` của `appointmentController`.
-
-### RFM dùng để làm gì?
-
-RFM phân loại khách theo lần quay lại gần nhất, tần suất sử dụng và tổng chi tiêu. Kết quả dùng để gắn segment cho khách, hỗ trợ marketing cá nhân hóa như gửi voucher cho khách VIP hoặc khách có nguy cơ rời bỏ.
-
-### Chatbot có thật sự đặt lịch được không?
-
-Code có tool `create_booking` trong tool registry, cho phép AI tạo lịch khi đủ thông tin và khách đã xác nhận. Tuy nhiên để demo ổn định cần cấu hình OpenAI và kiểm thử dữ liệu dịch vụ/nhân viên trước.
-
-### Nếu khách hủy lịch nhiều thì hệ thống xử lý sao?
-
-Hệ thống có cancellation score. Khách có lịch sử hủy/no-show cao, đặt sát giờ hoặc thuộc segment rủi ro sẽ có điểm cao hơn. Nếu vượt ngưỡng, hệ thống yêu cầu đặt cọc online để giữ chỗ.
-
-## 5. Các Điểm Nên Kiểm Tra Trước Khi Demo
-
-Các mục này không nhất thiết phải đưa lên slide, nhưng nên kiểm tra để tránh demo lỗi:
-
-- Frontend đang gọi `bookingService.getCancellationScore()` tới `/bookings/cancellation-score`, trong khi backend hiện khai báo `/api/cancellation-score`. Nên đồng bộ lại endpoint trước khi demo phần "AI chống boom lịch".
-- Backend cancellation score route trong `app.js` đang đọc `appointmentDate`, `appointmentTime`, còn frontend gửi `appointment_date`, `appointment_time`. Nên thống nhất tên field.
-- `cancellationScoreService.calculateScore()` trả `score`, `requireDeposit`, `depositPercent`, nhưng frontend đang hiển thị `riskLevel`. Nên thêm `riskLevel` hoặc chỉnh UI.
-- Một vài tool chatbot trong `toolRegistry` cần kiểm thử lại với schema DB hiện tại trước khi demo chức năng function calling sâu.
-- Nếu demo VNPay/VietQR, cần kiểm tra `.env` có đủ biến cấu hình và bảng `payments` đã chạy migration gateway.
-- Nếu demo email, cần cấu hình SMTP; nếu không, reminder job chỉ log local.
-
-## 6. Gợi Ý Thiết Kế Slide
-
-Màu chủ đạo:
-
-- Nền sáng, trắng hoặc xanh rất nhạt.
-- Màu nhấn xanh teal/xanh lá nhẹ để hợp dashboard hiện tại.
-- Tránh nhồi code dài; chỉ đưa flow/sơ đồ.
-
-Ảnh nên chụp từ app:
-
-- Trang đặt lịch nhiều dịch vụ.
-- Dashboard admin.
-- Trang quản lý lịch hẹn.
-- Trang voucher của khách hoặc quản lý voucher.
-- Chatbot.
-- Trang thanh toán/bill nếu đã có dữ liệu.
-
-Sơ đồ nên tự vẽ:
-
-- Sơ đồ kiến trúc 3 lớp.
-- Sơ đồ luồng đặt lịch.
-- Sơ đồ database quan hệ chính.
-- Sơ đồ realtime dashboard.
-- Sơ đồ RFM -> segment -> voucher.
-
-## 7. Thứ Tự Ưu Tiên Nếu Chỉ Có 10 Slide
-
-Nếu bị giới hạn thời gian, dùng 10 slide này:
-
-1. Tiêu đề.
-2. Lý do chọn đề tài và mục tiêu.
-3. Vai trò người dùng.
-4. Công nghệ và kiến trúc.
-5. Cơ sở dữ liệu.
-6. Luồng đặt lịch.
-7. Admin dashboard và quản lý.
-8. Tính năng thông minh: voucher, RFM, chống boom lịch.
-9. Chatbot, payment, realtime.
-10. Kết quả hiện tại, hạn chế, hướng phát triển.
-
+**Câu 7: Tại sao hệ thống này lại chọn Cơ sở dữ liệu quan hệ (SQL/MySQL) thay vì NoSQL (như MongoDB)?**
+*   *Trả lời:* Nhóm quyết định chọn SQL (MySQL) vì 3 lý do cốt lõi phù hợp với đặc thù của hệ thống đặt lịch:
+    1.  **Tính quan hệ dữ liệu cực kỳ cao (Highly Relational):** Nghiệp vụ đặt lịch liên kết chặt chẽ với nhau: 1 *Lịch hẹn* thuộc về 1 *Khách hàng*, do 1 *Nhân viên* làm, bao gồm nhiều *Dịch vụ*, áp dụng 1 *Voucher* và có 1 *Hóa đơn thanh toán*. SQL với các bảng (Tables) và khóa ngoại (Foreign Keys), lệnh JOIN sinh ra để xử lý các mối quan hệ chằng chịt này một cách tối ưu. Nếu dùng MongoDB (Document-based), việc nhúng (embed) hay tham chiếu (reference) dữ liệu chéo nhau sẽ rất phức tạp và khó đồng bộ khi cập nhật (ví dụ: đổi giá dịch vụ).
+    2.  **Tính toàn vẹn dữ liệu (ACID) & Giao dịch thanh toán:** Khi khách thanh toán, hệ thống phải thực hiện cùng lúc 3 việc: Cập nhật trạng thái lịch, Tạo record thanh toán, Cập nhật trạng thái Voucher. SQL đảm bảo tính toàn vẹn tuyệt đối qua Transaction (Giao dịch). Nếu 1 bước lỗi, toàn bộ tiến trình sẽ Rollback lại (hủy bỏ) để không bị sai lệch số liệu tiền bạc.
+    3.  **Hỗ trợ truy vấn phân tích (Analytics & RFM):** Dự án có tính năng tính điểm RFM và Dashboard thống kê doanh thu. Các câu lệnh tính tổng (SUM), đếm (COUNT), gom nhóm (GROUP BY) theo thời gian của SQL mạnh mẽ và tối ưu hơn rất nhiều so với Aggregation Pipeline của MongoDB.

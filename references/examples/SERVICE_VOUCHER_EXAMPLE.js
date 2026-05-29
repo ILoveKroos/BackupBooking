@@ -164,29 +164,19 @@ class VoucherService {
    */
   async recordVoucherUsage(voucherId, assignmentId, customerId, appointmentId, discountApplied) {
     try {
-      // Insert usage record
-      const usageQuery = `
-        INSERT INTO voucher_usage_history (
-          voucher_id, assignment_id, customer_id, appointment_id, discount_applied
-        ) VALUES (?, ?, ?, ?, ?)
-      `;
-
-      await db.query(usageQuery, [
-        voucherId,
-        assignmentId,
-        customerId,
-        appointmentId,
-        discountApplied
-      ]);
-
-      // Update assignment usage count
       const updateQuery = `
         UPDATE voucher_assignments
-        SET usage_count = usage_count + 1, last_used_date = NOW()
+        SET
+          usage_count = usage_count + 1,
+          last_used_date = NOW(),
+          last_appointment_id = ?,
+          last_discount_applied = ?,
+          total_discount_applied = total_discount_applied + ?,
+          applied = 1
         WHERE id = ?
       `;
 
-      await db.query(updateQuery, [assignmentId]);
+      await db.query(updateQuery, [appointmentId, discountApplied, discountApplied, assignmentId]);
 
       // Update voucher global usage count
       const voucherQuery = `

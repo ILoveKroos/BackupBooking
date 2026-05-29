@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import VoucherIcon from '../../../components/VoucherIcon';
 import customerService from '../../../services/customerService';
 import voucherService from '../../../services/voucherService';
 import { formatVnd } from '../../../utils/formatters';
@@ -40,6 +41,8 @@ function ManageVouchers() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', text: '' });
+  const [activeAssignVoucherId, setActiveAssignVoucherId] = useState(null);
+  const [editingVoucherId, setEditingVoucherId] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -99,20 +102,43 @@ function ManageVouchers() {
     return payload;
   };
 
-  const handleCreate = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
       setSaving(true);
-      await voucherService.createVoucher(buildPayload());
+      if (editingVoucherId) {
+        await voucherService.updateVoucher(editingVoucherId, buildPayload());
+        setFeedback({ type: 'success', text: 'Đã cập nhật voucher.' });
+      } else {
+        await voucherService.createVoucher(buildPayload());
+        setFeedback({ type: 'success', text: 'Đã tạo voucher.' });
+      }
       setFormData(emptyForm);
-      setFeedback({ type: 'success', text: 'Đã tạo voucher.' });
+      setEditingVoucherId(null);
       await fetchData();
     } catch (err) {
-      setFeedback({ type: 'error', text: err.response?.data?.message || 'Tạo voucher thất bại.' });
+      setFeedback({ type: 'error', text: err.response?.data?.message || 'Thao tác thất bại.' });
     } finally {
       setSaving(false);
     }
+  };
+
+  const startEditVoucher = (voucher) => {
+    setEditingVoucherId(voucher.id);
+    setFormData({
+      code: voucher.code || '',
+      voucher_type: voucher.voucher_type || 'percentage',
+      discount_percent: voucher.discount_percent ? String(voucher.discount_percent) : '',
+      discount_amount: voucher.discount_amount ? String(voucher.discount_amount) : '',
+      min_order_value: voucher.min_order_value ? String(voucher.min_order_value) : '',
+      max_discount_amount: voucher.max_discount_amount ? String(voucher.max_discount_amount) : '',
+      customer_type: voucher.customer_type || 'both',
+      valid_days: voucher.valid_days ? String(voucher.valid_days) : '7',
+      max_usage_global: voucher.max_usage_global ? String(voucher.max_usage_global) : '',
+      description: voucher.description || ''
+    });
+    setFeedback({ type: '', text: '' });
   };
 
   const updateAssignState = (voucherId, patch) => {
@@ -169,9 +195,14 @@ function ManageVouchers() {
   return (
     <div className="manage-vouchers-page">
       <section className="voucher-admin-head">
-        <div>
-          <p>Admin</p>
-          <h1>Quản lý voucher</h1>
+        <div className="voucher-admin-title">
+          <span className="voucher-admin-icon">
+            <VoucherIcon className="voucher-admin-icon-svg" />
+          </span>
+          <div>
+            <p>Admin</p>
+            <h1>Quản lý voucher</h1>
+          </div>
         </div>
         <div className="voucher-admin-stats">
           <span>
@@ -192,8 +223,8 @@ function ManageVouchers() {
       {feedback.text && <div className={`alert alert-${feedback.type}`}>{feedback.text}</div>}
 
       <section className="voucher-admin-layout">
-        <form className="voucher-form" onSubmit={handleCreate}>
-          <h2>Tạo voucher</h2>
+        <form className="voucher-form" onSubmit={handleSubmit}>
+          <h2>{editingVoucherId ? 'Cập nhật voucher' : 'Tạo voucher'}</h2>
 
           <label>
             Mã voucher
@@ -305,71 +336,178 @@ function ManageVouchers() {
             />
           </label>
 
-          <button type="submit" className="voucher-primary-btn" disabled={saving}>
-            {saving ? 'Đang lưu...' : 'Tạo voucher'}
-          </button>
+          <div className="voucher-form-actions" style={{ display: 'grid', gridTemplateColumns: editingVoucherId ? '1fr 1fr' : '1fr', gap: '10px' }}>
+            <button type="submit" className="voucher-primary-btn" disabled={saving}>
+              {saving ? 'Đang lưu...' : editingVoucherId ? 'Cập nhật' : 'Tạo voucher'}
+            </button>
+            {editingVoucherId && (
+              <button
+                type="button"
+                className="voucher-secondary-btn"
+                onClick={() => {
+                  setFormData(emptyForm);
+                  setEditingVoucherId(null);
+                }}
+              >
+                Hủy sửa
+              </button>
+            )}
+          </div>
         </form>
 
         <section className="voucher-list-panel">
-          <h2>Danh sách voucher</h2>
+          <div className="voucher-list-header">
+            <h2>Danh sách voucher</h2>
+            <span className="voucher-count-badge">{vouchers.length} mã</span>
+          </div>
           <div className="voucher-admin-list">
             {vouchers.map((voucher) => {
               const assignState = assignByVoucher[voucher.id] || {};
+              const isAssignOpen = activeAssignVoucherId === voucher.id;
+              const usagePercent = voucher.max_usage_global
+                ? Math.min(100, Math.round((Number(voucher.current_usage || 0) / Number(voucher.max_usage_global)) * 100))
+                : 0;
+
               return (
-                <article key={voucher.id} className="voucher-admin-card">
-                  <div className="voucher-admin-card-main">
-                    <div>
-                      <span className={`voucher-status ${voucher.status}`}>{voucher.status}</span>
-                      <h3>{voucher.code}</h3>
-                      <p>{voucher.description || 'Voucher BeautyBook'}</p>
+                <article key={voucher.id} className={`voucher-ticket-card ${voucher.status}`}>
+                  <div className="voucher-ticket-main">
+                    <div className="voucher-ticket-left">
+                      <div className="ticket-discount-wrap">
+                        <span className={`ticket-discount-val ${getDiscountText(voucher).length > 7 ? 'long-val' : ''}`}>
+                          {getDiscountText(voucher)}
+                        </span>
+                        <span className="ticket-discount-lbl">GIẢM GIÁ</span>
+                      </div>
+                      <div className="ticket-notch notch-top" />
+                      <div className="ticket-notch notch-bottom" />
                     </div>
-                    <strong>{getDiscountText(voucher)}</strong>
+
+                    <div className="voucher-ticket-divider" />
+
+                    <div className="voucher-ticket-right">
+                      <div className="ticket-header-row">
+                        <span className={`voucher-status-badge ${voucher.status}`}>
+                          <span className="status-badge-dot" />
+                          {voucher.status === 'active' ? 'Đang chạy' : 'Đã tắt'}
+                        </span>
+                        <h3 className="ticket-code">{voucher.code}</h3>
+                      </div>
+
+                      <p className="ticket-desc">{voucher.description || 'Ưu đãi đặc biệt từ BeautyBook'}</p>
+
+                      {voucher.max_usage_global && (
+                        <div className="ticket-usage-progress">
+                          <div className="progress-bar-container">
+                            <div className="progress-bar-fill" style={{ width: `${usagePercent}%` }} />
+                          </div>
+                          <div className="progress-labels">
+                            <span>Sử dụng: <strong>{voucher.current_usage || 0}</strong>/{voucher.max_usage_global} lượt</span>
+                            <span>{usagePercent}%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="voucher-ticket-meta">
+                        <div className="meta-item">
+                          <span className="meta-lbl">Đơn tối thiểu</span>
+                          <span className="meta-val">{formatVnd(voucher.min_order_value)}</span>
+                        </div>
+                        <div className="meta-item">
+                          <span className="meta-lbl">Hạn dùng</span>
+                          <span className="meta-val">{formatDate(voucher.expiry_date)}</span>
+                        </div>
+                        <div className="meta-item">
+                          <span className="meta-lbl">Nhóm áp dụng</span>
+                          <span className="meta-val">
+                            {voucher.customer_type ? (voucher.customer_type === 'both' ? 'Tất cả' : voucher.customer_type.toUpperCase()) : 'Tất cả'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="ticket-actions-row">
+                        <button
+                          type="button"
+                          className={`ticket-icon-btn assign ${isAssignOpen ? 'active' : ''}`}
+                          onClick={() => setActiveAssignVoucherId(isAssignOpen ? null : voucher.id)}
+                          title="Gán voucher cho khách hàng"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <line x1="19" y1="8" x2="19" y2="14" />
+                            <line x1="16" y1="11" x2="22" y2="11" />
+                          </svg>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ticket-icon-btn edit"
+                          onClick={() => startEditVoucher(voucher)}
+                          title="Chỉnh sửa voucher"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                          </svg>
+                        </button>
+
+                        {voucher.status === 'active' && (
+                          <button
+                            type="button"
+                            className="ticket-icon-btn deactivate"
+                            onClick={() => handleDeactivate(voucher.id)}
+                            disabled={saving}
+                            title="Tắt mã voucher"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <line x1="9" y1="9" x2="15" y2="15" />
+                              <line x1="15" y1="9" x2="9" y2="15" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="voucher-admin-meta">
-                    <span>Đơn tối thiểu: {formatVnd(voucher.min_order_value)}</span>
-                    <span>Hạn: {formatDate(voucher.expiry_date)}</span>
-                    <span>Đã gán: {Number(voucher.assigned_count || 0)}</span>
-                    <span>Dùng: {Number(voucher.current_usage || 0)}</span>
-                  </div>
+                  {isAssignOpen && (
+                    <div className="voucher-assign-drawer">
+                      <h4>Gán mã voucher cho khách hàng</h4>
+                      <div className="drawer-fields">
+                        <div className="drawer-select-wrap">
+                          <select
+                            value={assignState.customer_id || ''}
+                            onChange={(event) => updateAssignState(voucher.id, { customer_id: event.target.value })}
+                          >
+                            <option value="">Chọn khách hàng...</option>
+                            {customers.map((customer) => (
+                              <option key={customer.id} value={customer.id}>
+                                {customer.name} ({customer.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                  <div className="voucher-assign-row">
-                    <select
-                      value={assignState.customer_id || ''}
-                      onChange={(event) => updateAssignState(voucher.id, { customer_id: event.target.value })}
-                    >
-                      <option value="">Chọn khách hàng</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.name} - {customer.email}
-                        </option>
-                      ))}
-                    </select>
+                        <label className="drawer-email-toggle">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(assignState.send_email)}
+                            onChange={(event) => updateAssignState(voucher.id, { send_email: event.target.checked })}
+                          />
+                          <span>Gửi thông báo email</span>
+                        </label>
 
-                    <label className="voucher-email-toggle">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(assignState.send_email)}
-                        onChange={(event) => updateAssignState(voucher.id, { send_email: event.target.checked })}
-                      />
-                      Gửi email
-                    </label>
-
-                    <button type="button" onClick={() => handleAssign(voucher.id)} disabled={saving}>
-                      Gán
-                    </button>
-
-                    {voucher.status === 'active' && (
-                      <button
-                        type="button"
-                        className="voucher-danger-btn"
-                        onClick={() => handleDeactivate(voucher.id)}
-                        disabled={saving}
-                      >
-                        Tắt
-                      </button>
-                    )}
-                  </div>
+                        <button
+                          type="button"
+                          className="drawer-confirm-btn"
+                          onClick={() => handleAssign(voucher.id)}
+                          disabled={saving}
+                        >
+                          {saving ? 'Đang gán...' : 'Xác nhận gán'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </article>
               );
             })}

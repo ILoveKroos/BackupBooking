@@ -20,12 +20,11 @@ import PaymentTransfer from './pages/PaymentTransfer';
 import Profile from './pages/Profile';
 import ChatBot from './pages/ChatBot';
 import AdminDashboard from './pages/admin/Dashboard';
-import ManageServices from './pages/admin/ManageServices';
+import ManageServices from './pages/admin/ManageServices/ManageServices';
 import ManageAppointments from './pages/admin/ManageAppointments';
 import Analytics from './pages/admin/Analytics';
 import ManageStaff from './pages/admin/ManageStaff';
 import StaffLeaveManagement from './pages/admin/StaffLeaveManagement';
-import ManageCustomers from './pages/admin/ManageCustomers';
 import ManageVouchers from './pages/admin/ManageVouchers';
 import ServiceStaffDashboard from './pages/staff/ServiceStaffDashboard';
 import StaffScheduleCalendar from './pages/admin/StaffScheduleCalendar';
@@ -33,8 +32,17 @@ import StaffScheduleCalendar from './pages/admin/StaffScheduleCalendar';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import BottomNav from './components/BottomNav/BottomNav';
+import RoleSidebar from './components/RoleSidebar/RoleSidebar';
 import ConsentBanner from './components/ConsentBanner';
+import PwaInstallPrompt from './components/PwaInstallPrompt/PwaInstallPrompt';
 import { readUserLocation } from './utils/consent';
+
+const normalizeRoleName = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 
 function App() {
   const [user, setUser] = useState(null);
@@ -42,16 +50,49 @@ function App() {
   const [userLocation, setUserLocation] = useState(() => readUserLocation());
 
   useEffect(() => {
-    const savedUser = authService.getUser();
-    const savedToken = authService.getToken();
+    let isMounted = true;
 
-    if (savedUser && savedToken) {
-      setUser(savedUser);
-    } else {
-      authService.logout();
-    }
+    const loadSession = async () => {
+      const savedUser = authService.getUser();
+      const savedToken = authService.getToken();
 
-    setLoading(false);
+      if (!savedUser || !savedToken) {
+        authService.logout();
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      if (isMounted) {
+        setUser(savedUser);
+      }
+
+      if (savedUser.created_at) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await authService.getProfile();
+        const profileUser = response.data?.data || response.data?.user;
+
+        if (profileUser && isMounted) {
+          const refreshedUser = { ...savedUser, ...profileUser };
+          const rememberMe = Boolean(localStorage.getItem('token'));
+          setUser(refreshedUser);
+          authService.setUser(refreshedUser, rememberMe);
+        }
+      } catch (err) {
+        console.error('[PROFILE_SYNC_ERROR]', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -65,6 +106,11 @@ function App() {
 
   const isAuthenticated = Boolean(user && authService.getToken());
   const authenticatedUser = isAuthenticated ? user : null;
+  const usesRoleSidebar = Boolean(
+    authenticatedUser && ['admin', 'staff'].includes(authenticatedUser.role)
+  );
+  const isCashierStaff =
+    authenticatedUser?.role === 'staff' && normalizeRoleName(authenticatedUser.staff_role_name) === 'thu ngan';
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -82,8 +128,9 @@ function App() {
 
   return (
     <Router>
-      <div className="app">
+      <div className={`app ${usesRoleSidebar ? 'app--role-sidebar' : ''}`.trim()}>
         <Header user={authenticatedUser} onLogout={handleLogout} />
+        <RoleSidebar user={authenticatedUser} onLogout={handleLogout} />
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Home userLocation={userLocation} />} />
@@ -127,7 +174,6 @@ function App() {
                 <Route path="/admin/services" element={<ManageServices />} />
                 <Route path="/admin/staff" element={<ManageStaff />} />
                 <Route path="/admin/staff-leave" element={<StaffLeaveManagement />} />
-                <Route path="/admin/customers" element={<ManageCustomers />} />
                 <Route path="/admin/vouchers" element={<ManageVouchers />} />
                 <Route path="/admin/appointments" element={<ManageAppointments />} />
                 <Route path="/admin/schedule" element={<StaffScheduleCalendar />} />
@@ -137,10 +183,9 @@ function App() {
 
             {isAuthenticated && user.role === 'staff' && (
               <>
-                {(user.staff_role_name || '').trim().toLowerCase() === 'thu ngân' ? (
+                {isCashierStaff ? (
                   <>
                     <Route path="/staff/dashboard" element={<ManageAppointments />} />
-                    <Route path="/staff/customers" element={<ManageCustomers />} />
                   </>
                 ) : (
                   <>
@@ -159,6 +204,7 @@ function App() {
         </main>
         <ChatBot />
         <ConsentBanner onLocationChange={setUserLocation} />
+        <PwaInstallPrompt />
         <Footer />
         {authenticatedUser && <BottomNav user={authenticatedUser} />}
       </div>

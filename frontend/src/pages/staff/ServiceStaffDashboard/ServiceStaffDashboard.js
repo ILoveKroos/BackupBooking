@@ -4,6 +4,56 @@ import bookingService from '../../../services/bookingService';
 import staffService from '../../../services/staffService';
 import './ServiceStaffDashboard.css';
 
+const WEEKDAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+const SHIFT_OPTIONS = [
+  { value: 'morning', label: 'Ca sáng' },
+  { value: 'evening', label: 'Ca tối' },
+  { value: 'full', label: 'Full ca' }
+];
+
+const getShiftFromTimes = (dayIndex, startTime, endTime) => {
+  if (!startTime || !endTime) return 'morning';
+  const start = String(startTime).slice(0, 5);
+  const end = String(endTime).slice(0, 5);
+  const [startHour, startMinute] = start.split(':').map(Number);
+  const [endHour, endMinute] = end.split(':').map(Number);
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  if (dayIndex >= 0 && dayIndex <= 4 && start === '08:00' && end === '21:30') return 'full';
+  if (dayIndex >= 5 && start === '07:00' && end === '23:00') return 'full';
+  if (endMinutes - startMinutes > 8 * 60) return 'full';
+
+  return startHour < 12 ? 'morning' : 'evening';
+};
+
+const getTimesFromShift = (dayIndex, shift) => {
+  if (dayIndex >= 0 && dayIndex <= 4) {
+    // Thứ 2 - Thứ 6
+    if (shift === 'morning') return { start: '08:00', end: '16:00' };
+    if (shift === 'evening') return { start: '13:30', end: '21:30' };
+    if (shift === 'full') return { start: '08:00', end: '21:30' };
+  } else {
+    // Thứ 7 - Chủ Nhật
+    if (shift === 'morning') return { start: '07:00', end: '15:00' };
+    if (shift === 'evening') return { start: '15:00', end: '23:00' };
+    if (shift === 'full') return { start: '07:00', end: '23:00' };
+  }
+  return null;
+};
+
+const getShiftLabel = (shift) => SHIFT_OPTIONS.find((item) => item.value === shift)?.label || 'Ca sáng';
+
+const buildWeekFromRows = (rows = []) =>
+  WEEKDAY_LABELS.map((label, dayIndex) => {
+    const row = rows.find((item) => Number(item.day_of_week) === dayIndex);
+    return {
+      day_of_week: dayIndex,
+      label,
+      shift: row ? getShiftFromTimes(dayIndex, row.start_time, row.end_time) : 'morning'
+    };
+  });
+
 const formatRating = (rating) => {
   const safeRating = Number(rating);
   if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
@@ -80,7 +130,7 @@ const getCancelDialogConfig = (dialog) => {
     case 'request_cancel':
       return {
         title: 'Xác nhận gửi yêu cầu hủy',
-        message: 'Yêu cầu hủy sẽ được gửi lên admin để xét duyệt trước khi lịch bị hủy.',
+        message: 'Yêu cầu hủy sẽ được gửi lên quản lý để xét duyệt trước khi lịch bị hủy.',
         confirmLabel: 'Gửi yêu cầu hủy',
         cancelLabel: 'Không',
         tone: 'danger'
@@ -99,6 +149,10 @@ function ServiceStaffDashboard() {
   const [processingId, setProcessingId] = useState(null);
   const [cancelDialog, setCancelDialog] = useState(null);
   const [showLeaveRequestModal, setShowLeaveRequestModal] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState(buildWeekFromRows());
+  const [weeklyScheduleLoading, setWeeklyScheduleLoading] = useState(false);
+  const [weeklyScheduleSaving, setWeeklyScheduleSaving] = useState(false);
+  const [weeklyScheduleMessage, setWeeklyScheduleMessage] = useState('');
   const [leaveRequest, setLeaveRequest] = useState({
     start_date: '',
     end_date: '',
@@ -109,7 +163,20 @@ function ServiceStaffDashboard() {
   useEffect(() => {
     fetchMyAppointments();
     fetchMyLeaveRequests();
+    fetchMyWeeklySchedule();
   }, []);
+
+  const fetchMyWeeklySchedule = async () => {
+    try {
+      setWeeklyScheduleLoading(true);
+      const response = await staffService.getMyWeeklyAvailability();
+      setWeeklySchedule(buildWeekFromRows(response.data?.data || []));
+    } catch (err) {
+      setWeeklyScheduleMessage(err.response?.data?.message || 'Không thể tải ca làm đã đăng ký.');
+    } finally {
+      setWeeklyScheduleLoading(false);
+    }
+  };
 
   const fetchMyLeaveRequests = async () => {
     try {
@@ -306,13 +373,47 @@ function ServiceStaffDashboard() {
 
     try {
       await staffService.requestLeave(leaveRequest);
-      window.alert('Gửi yêu cầu nghỉ phép thành công! Chờ admin xác nhận.');
+      window.alert('Gửi yêu cầu nghỉ phép thành công! Chờ quản lý xác nhận.');
       setShowLeaveRequestModal(false);
       setLeaveRequest({ start_date: '', end_date: '', reason: '' });
       fetchMyLeaveRequests();
     } catch (err) {
       const msg = err.response?.data?.message || 'Có lỗi xảy ra khi gửi yêu cầu.';
       window.alert(msg);
+    }
+  };
+
+  const updateWeeklyScheduleDay = (dayIndex, patch) => {
+    setWeeklyScheduleMessage('');
+    setWeeklySchedule((prev) =>
+      prev.map((day, index) => (index === dayIndex ? { ...day, ...patch } : day))
+    );
+  };
+
+  const handleSaveWeeklySchedule = async () => {
+    if (weeklySchedule.length !== 7 || weeklySchedule.some((day) => !['morning', 'evening', 'full'].includes(day.shift))) {
+      setWeeklyScheduleMessage('Vui lòng chọn ca sáng, ca tối hoặc full ca cho đủ 7 ngày trong tuần.');
+      return;
+    }
+
+    const slots = weeklySchedule.map((day) => {
+      const times = getTimesFromShift(day.day_of_week, day.shift);
+      return {
+        day_of_week: day.day_of_week,
+        start_time: times.start,
+        end_time: times.end
+      };
+    });
+
+    try {
+      setWeeklyScheduleSaving(true);
+      setWeeklyScheduleMessage('');
+      await staffService.replaceMyWeeklyAvailability(slots);
+      setWeeklyScheduleMessage('Đã lưu ca làm của bạn thành công.');
+    } catch (err) {
+      setWeeklyScheduleMessage(err.response?.data?.message || 'Không thể lưu ca làm.');
+    } finally {
+      setWeeklyScheduleSaving(false);
     }
   };
 
@@ -330,6 +431,18 @@ function ServiceStaffDashboard() {
     [appointments, filter]
   );
 
+  const morningShiftCount = useMemo(
+    () => weeklySchedule.filter((day) => day.shift === 'morning').length,
+    [weeklySchedule]
+  );
+  const eveningShiftCount = useMemo(
+    () => weeklySchedule.filter((day) => day.shift === 'evening').length,
+    [weeklySchedule]
+  );
+  const fullShiftCount = useMemo(
+    () => weeklySchedule.filter((day) => day.shift === 'full').length,
+    [weeklySchedule]
+  );
   const cancelDialogConfig = getCancelDialogConfig(cancelDialog);
   const isCancelDialogProcessing =
     Boolean(cancelDialog?.appointment) && processingId === cancelDialog.appointment.id;
@@ -342,7 +455,7 @@ function ServiceStaffDashboard() {
     <div className="service-staff-dashboard">
       <section className="staff-schedule-hero">
         <div className="staff-schedule-hero-copy">
-          <p className="staff-schedule-kicker">Nhân viên dịch vụ</p>
+          <p className="staff-schedule-kicker">Nhân viên</p>
           <h1>Lịch làm việc của tôi</h1>
           <p className="staff-schedule-note">
             Chào {currentUser?.name}, đây là nơi bạn theo dõi lịch đã được giao, xác nhận nhận
@@ -357,6 +470,63 @@ function ServiceStaffDashboard() {
               <strong className="staff-schedule-stat-value">{item.value}</strong>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="staff-weekly-register">
+        <div className="staff-weekly-register-head">
+          <div>
+            <p>Ca làm</p>
+            <h2>Đăng ký ca làm hằng tuần</h2>
+            <small className="weekly-schedule-hint">
+              Chọn ca sáng, ca tối hoặc full ca cho đủ 7 ngày. Nếu cần nghỉ, gửi yêu cầu nghỉ phép để quản lý duyệt.
+              Đang chọn: <strong>{morningShiftCount} ca sáng</strong> · <strong>{eveningShiftCount} ca tối</strong> · <strong>{fullShiftCount} full ca</strong>
+            </small>
+          </div>
+          <button
+            type="button"
+            className="btn-save-weekly"
+            onClick={handleSaveWeeklySchedule}
+            disabled={weeklyScheduleSaving || weeklyScheduleLoading}
+          >
+            {weeklyScheduleSaving ? 'Đang lưu...' : 'Lưu ca làm'}
+          </button>
+        </div>
+
+        {weeklyScheduleMessage && <div className="weekly-schedule-message">{weeklyScheduleMessage}</div>}
+
+        <div className="weekly-schedule-grid" aria-busy={weeklyScheduleLoading}>
+          {weeklySchedule.map((day, index) => {
+            const times = getTimesFromShift(day.day_of_week, day.shift);
+            return (
+              <div className="weekly-schedule-day is-enabled" key={day.day_of_week}>
+                <span className="weekly-day-name" style={{ fontWeight: '600', minWidth: '80px', display: 'inline-block' }}>{day.label}</span>
+                <div className="weekly-shift-selector" style={{ margin: '8px 0' }}>
+                  <select
+                    className="weekly-shift-select"
+                    value={day.shift}
+                    disabled={weeklyScheduleLoading}
+                    onChange={(event) => updateWeeklyScheduleDay(index, { shift: event.target.value })}
+                  >
+                    {SHIFT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="weekly-time-display" style={{ fontSize: '13px', color: '#64748b' }}>
+                  {times ? (
+                    <span className="shift-time-range">
+                      {getShiftLabel(day.shift)} · {times.start} - {times.end}
+                    </span>
+                  ) : (
+                    <span className="shift-off-label" style={{ color: '#94a3b8' }}>Chưa có khung giờ</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -453,7 +623,7 @@ function ServiceStaffDashboard() {
                           {getDisplayStatus(appointment)}
                         </span>
                         {requestPending && (
-                          <small className="status-note">Khách đang chờ admin xác nhận hủy.</small>
+                          <small className="status-note">Khách đang chờ quản lý xác nhận hủy.</small>
                         )}
                         {!requestPending && awaitingStaffConfirmation && (
                           <small className="status-note status-note-pending">
@@ -467,7 +637,7 @@ function ServiceStaffDashboard() {
                     </td>
                     <td>
                       {requestPending ? (
-                        <span className="no-action">Chờ admin xác nhận hủy</span>
+                        <span className="no-action">Chờ quản lý xác nhận hủy</span>
                       ) : awaitingStaffConfirmation ? (
                         <div className="action-buttons">
                           <button

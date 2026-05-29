@@ -164,9 +164,6 @@ const getAllCustomers = (callback) => {
       u.is_active,
       u.customer_segment,
       u.rfm_score,
-      u.rfm_recency_score,
-      u.rfm_frequency_score,
-      u.rfm_monetary_score,
       u.rfm_updated_at,
       u.created_at,
       COUNT(a.id) AS total_appointments,
@@ -185,9 +182,6 @@ const getAllCustomers = (callback) => {
       u.is_active,
       u.customer_segment,
       u.rfm_score,
-      u.rfm_recency_score,
-      u.rfm_frequency_score,
-      u.rfm_monetary_score,
       u.rfm_updated_at,
       u.created_at
     ORDER BY u.created_at DESC

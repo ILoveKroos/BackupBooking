@@ -18,11 +18,11 @@ const voucherRoutes = require('./routes/voucherRoutes');
 
 // Cron Jobs
 const { startReminderJob } = require('./jobs/appointmentReminderJob');
-const { startRFMJob } = require('./jobs/rfmClassificationJob');
+const { startClusteringJob } = require('./jobs/clusteringJob');
 
 // Smart Services
 const cancellationScoreService = require('./services/cancellationScoreService');
-const rfmService = require('./services/rfmService');
+const clusteringService = require('./services/clusteringService');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -73,17 +73,36 @@ app.use((req, res, next) => {
   next();
 });
 
+const isProduction = process.env.NODE_ENV === 'production';
+const generalRateLimitMax = Number(
+  process.env.GENERAL_RATE_LIMIT_MAX || (isProduction ? 300 : 10000)
+);
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau.'
+  max: generalRateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau.'
+  }
 });
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   skipSuccessfulRequests: true,
-  message: 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút.'
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const retryAfter = res.getHeader('Retry-After');
+    const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 15 * 60;
+    res.status(429).json({
+      message: 'Đăng nhập sai quá nhiều lần, vui lòng thử lại sau.',
+      retryAfterSeconds
+    });
+  }
 });
 
 app.use(generalLimiter);
@@ -123,32 +142,32 @@ app.post('/api/cancellation-score', verifyToken, async (req, res) => {
   }
 });
 
-// RFM — Manual trigger (admin)
+// Clustering — Manual trigger (admin)
 app.post('/api/admin/rfm/run', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const result = await rfmService.runFullAnalysis();
+    const result = await clusteringService.runFullAnalysis();
     return res.json({ success: true, data: result });
   } catch (err) {
-    console.error('[RFM_RUN_ERROR]', err);
-    return res.status(500).json({ success: false, message: 'Không thể chạy phân tích RFM' });
+    console.error('[CLUSTERING_RUN_ERROR]', err);
+    return res.status(500).json({ success: false, message: 'Không thể chạy phân cụm khách hàng' });
   }
 });
 
-// RFM — Get segment stats (admin)
+// Clustering — Get segment stats (admin)
 app.get('/api/admin/rfm/stats', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const stats = await rfmService.getSegmentStats();
+    const stats = await clusteringService.getSegmentStats();
     return res.json({ success: true, data: stats });
   } catch (err) {
-    console.error('[RFM_STATS_ERROR]', err);
-    return res.status(500).json({ success: false, message: 'Không thể lấy thống kê RFM' });
+    console.error('[CLUSTERING_STATS_ERROR]', err);
+    return res.status(500).json({ success: false, message: 'Không thể lấy thống kê phân cụm' });
   }
 });
 
 // Start Cron Jobs
 try {
   startReminderJob();
-  startRFMJob();
+  startClusteringJob();
 } catch (cronErr) {
   console.error('[CRON_INIT_ERROR]', cronErr.message);
 }

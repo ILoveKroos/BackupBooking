@@ -168,29 +168,24 @@ Cột quan trọng:
 
 ### `voucher_assignments`
 
-Gán voucher cho từng khách.
+Gan voucher cho tung khach, dong thoi luu trang thai su dung va metadata goi y.
 
 - `voucher_id`
 - `customer_id`
 - `max_usage_customer`
 - `usage_count`
+- `last_used_date`
 - `is_used`
 - `status`
-
-### `voucher_usage_history`
-
-Lịch sử sử dụng voucher.
-
-- `voucher_id`
-- `assignment_id`
-- `customer_id`
-- `appointment_id`
-- `discount_applied`
-- `used_date`
-
-### `voucher_suggestions`
-
-Phục vụ gợi ý voucher và marketing.
+- `source`: `admin`, `system`, `bot`
+- `reason`
+- `confidence_score`
+- `shown_date`
+- `clicked`
+- `applied`
+- `last_appointment_id`
+- `last_discount_applied`
+- `total_discount_applied`
 
 ## 7. Bảng chatbot
 
@@ -243,7 +238,6 @@ appointments 1-n appointment_services
 appointments 1-n payments
 users(customer) 1-n voucher_assignments
 vouchers 1-n voucher_assignments
-vouchers 1-n voucher_usage_history
 chat_conversations 1-n chat_messages
 ```
 

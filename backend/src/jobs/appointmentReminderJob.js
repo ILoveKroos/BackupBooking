@@ -148,14 +148,34 @@ const processReminders = async () => {
   }
 };
 
+const expireVouchers = () => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      "UPDATE vouchers SET status = 'expired' WHERE expiry_date <= NOW() AND status = 'active'",
+      (err, results) => {
+        if (err) return reject(err);
+        if (results.affectedRows > 0) {
+          console.log(`[Voucher-Job] 🚨 Auto-expired ${results.affectedRows} vouchers`);
+        }
+        resolve();
+      }
+    );
+  });
+};
+
 const startReminderJob = () => {
+  // Run on startup
+  console.log('[Reminder] Running initial auto-expiration check for vouchers...');
+  expireVouchers().catch((err) => console.error('[Voucher-Job] Initial check error:', err.message));
+
   // Run every 15 minutes
   cron.schedule('*/15 * * * *', () => {
     console.log(`[Reminder] Checking for upcoming appointments at ${new Date().toLocaleString('vi-VN')}`);
     processReminders();
+    expireVouchers().catch((err) => console.error('[Voucher-Job] Error:', err.message));
   });
 
   console.log('[Reminder] ✅ Appointment reminder job scheduled (every 15 minutes)');
 };
 
-module.exports = { startReminderJob, processReminders };
+module.exports = { startReminderJob, processReminders, expireVouchers };

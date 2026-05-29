@@ -79,6 +79,23 @@ textarea {
   padding: clamp(20px, 3vw, 28px) clamp(16px, 2.8vw, 24px) 0;
 }
 
+@media (min-width: 981px) {
+  .app--role-sidebar {
+    padding-left: 244px;
+  }
+
+  .app--role-sidebar .header,
+  .app--role-sidebar footer {
+    display: none;
+  }
+
+  .app--role-sidebar .main-content {
+    max-width: none;
+    margin: 0;
+    padding: 24px clamp(22px, 2.4vw, 34px) 0;
+  }
+}
+
 .loading {
   display: flex;
   justify-content: center;
@@ -360,3 +377,18 @@ button {
   }
 }
 
+/* Ensure voucher ticket icon buttons render SVGs properly */
+.ticket-icon-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  display: inline-block !important;
+  flex: 0 0 16px !important;
+  pointer-events: none;
+  stroke: currentColor !important;
+  stroke-width: 2.5px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+}

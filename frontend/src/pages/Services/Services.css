@@ -78,11 +78,22 @@
   gap: 8px;
 }
 
-.search-form input {
+.search-form input,
+.filter-row select {
   border: 1px solid #d4e2ee;
   border-radius: 10px;
   padding: 10px 11px;
   font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #5f6675;
+  background: #ffffff;
+}
+
+.search-form input::placeholder {
+  color: #6b7280;
+  opacity: 1;
 }
 
 .search-form input:focus,
@@ -100,12 +111,6 @@
 
 .filter-row select {
   min-width: 190px;
-  border: 1px solid #d4e2ee;
-  border-radius: 10px;
-  padding: 10px 11px;
-  font-family: inherit;
-  color: #12223b;
-  background: #ffffff;
 }
 
 .btn-clear {

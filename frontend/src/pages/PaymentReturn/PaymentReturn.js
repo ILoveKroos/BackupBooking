@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import paymentService from '../../services/paymentService';
 import './PaymentReturn.css';
 
-const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -19,12 +19,16 @@ const formatDateTime = (value) => {
 };
 
 const formatPaymentMethodLabel = (paymentMethod) => {
-  if (paymentMethod === 'vietqr') {
-    return 'Chuyển khoản ngân hàng';
+  if (paymentMethod === 'cash') {
+    return 'Tiền mặt tại salon';
   }
 
-  if (paymentMethod === 'cash') {
-    return 'Thanh toán tại salon';
+  if (paymentMethod === 'banking') {
+    return 'Chuyển khoản tại salon';
+  }
+
+  if (paymentMethod === 'vietqr') {
+    return 'VietQR ngân hàng';
   }
 
   if (paymentMethod === 'vnpay') {

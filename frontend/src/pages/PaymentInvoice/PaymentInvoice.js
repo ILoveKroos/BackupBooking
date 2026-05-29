@@ -3,7 +3,27 @@ import { Link, useParams } from 'react-router-dom';
 import paymentService from '../../services/paymentService';
 import './PaymentInvoice.css';
 
-const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
+
+const formatPaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === 'cash') {
+    return 'Tiền mặt tại salon';
+  }
+
+  if (paymentMethod === 'banking') {
+    return 'Chuyển khoản tại salon';
+  }
+
+  if (paymentMethod === 'vietqr') {
+    return 'VietQR ngân hàng';
+  }
+
+  if (paymentMethod === 'vnpay') {
+    return 'VNPay online';
+  }
+
+  return paymentMethod || '-';
+};
 
 const formatDateTime = (value, includeTime = true) => {
   if (!value) {
@@ -96,7 +116,7 @@ function PaymentInvoice() {
           <div>
             <span className="invoice-kicker">Beauty Booking</span>
             <h1>Hóa đơn dịch vụ</h1>
-            <p>Bill được tạo từ giao dịch online để đối soát và in lưu trữ.</p>
+            <p>Bill được tạo từ giao dịch thanh toán để đối soát và in lưu trữ.</p>
           </div>
           <div className="invoice-status-box">
             <span>Số hóa đơn</span>
@@ -126,7 +146,7 @@ function PaymentInvoice() {
             <h2>Giao dịch</h2>
             <div className="invoice-row">
               <span>Phương thức</span>
-              <strong>{String(payment.payment_method || '-').toUpperCase()}</strong>
+              <strong>{formatPaymentMethodLabel(payment.payment_method)}</strong>
             </div>
             <div className="invoice-row">
               <span>Mã đối soát</span>

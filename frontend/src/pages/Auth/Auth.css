@@ -240,3 +240,74 @@
     font-size: 24px;
   }
 }
+
+/* ─── Rate-limit lockout alert ─── */
+.alert-lockout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  border: 1.5px solid #fca5a5 !important;
+  color: #991b1b !important;
+  padding: 16px !important;
+  animation: lockout-appear 0.35s ease;
+}
+
+.lockout-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #dc2626;
+}
+
+.lockout-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.lockout-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.countdown-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #b91c1c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.countdown-timer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #ffffff;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 2px 10px;
+  min-width: 64px;
+  letter-spacing: 2px;
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes lockout-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}

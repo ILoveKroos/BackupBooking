@@ -13,6 +13,8 @@ router.post('/categories', verifyToken, verifyAdmin, serviceController.createCat
 router.get('/categories', serviceController.getAllCategories);
 
 // Public routes
+router.get('/trending', serviceController.getTrendingServices);
+router.get('/recommendations', serviceController.getServiceRecommendations);
 router.get('/', serviceController.getAllServices);
 router.get('/:id', serviceController.getServiceById);
 

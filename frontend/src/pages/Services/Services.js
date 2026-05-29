@@ -310,9 +310,9 @@ function Services() {
 
           <select value={priceRange} onChange={(event) => setPriceRange(event.target.value)}>
             <option value="all">Giá: Tất cả</option>
-            <option value="under-300">Dưới 300.000 VND</option>
-            <option value="300-700">300.000 - 700.000 VND</option>
-            <option value="over-700">Trên 700.000 VND</option>
+            <option value="under-300">Dưới 300.000 VNĐ</option>
+            <option value="300-700">300.000 - 700.000 VNĐ</option>
+            <option value="over-700">Trên 700.000 VNĐ</option>
           </select>
 
           <button type="button" className="btn-clear" onClick={clearFilters}>

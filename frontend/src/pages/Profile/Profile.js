@@ -2,14 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import authService from '../../services/authService';
 import './Profile.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+
+const normalizeRoleName = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 
 const getRoleLabel = (user) => {
   if (!user) return '';
   if (user.role === 'admin') return 'Quản trị viên';
   if (user.role === 'staff') {
-    const staffRole = (user.staff_role_name || '').trim().toLowerCase();
-    if (staffRole === 'thu ngân') return 'Thu ngân';
+    const staffRole = normalizeRoleName(user.staff_role_name);
+    if (staffRole === 'thu ngan') return 'Thu ngân';
     return 'Nhân viên dịch vụ';
   }
   return 'Khách hàng';
@@ -40,6 +47,38 @@ function Profile({ user, setUser }) {
       setAvatarPreview(user.avatar ? `${API_URL}${user.avatar}` : null);
     }
   }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!user || user.created_at) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const syncProfile = async () => {
+      try {
+        const response = await authService.getProfile();
+        const profileUser = response.data?.data || response.data?.user;
+
+        if (profileUser && isMounted) {
+          const refreshedUser = { ...user, ...profileUser };
+          const rememberMe = Boolean(localStorage.getItem('token'));
+          authService.setUser(refreshedUser, rememberMe);
+          setUser(refreshedUser);
+        }
+      } catch (err) {
+        console.error('[PROFILE_SYNC_ERROR]', err);
+      }
+    };
+
+    syncProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, setUser]);
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];

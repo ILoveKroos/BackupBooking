@@ -62,6 +62,14 @@ const staffService = {
     return api.put(`/staff/${id}/weekly-availability`, { slots });
   },
 
+  getMyWeeklyAvailability: () => {
+    return api.get('/staff/me/weekly-availability');
+  },
+
+  replaceMyWeeklyAvailability: (slots) => {
+    return api.put('/staff/me/weekly-availability', { slots });
+  },
+
   requestLeave: (leaveData) => {
     return api.post('/staff/leave-request', leaveData);
   },

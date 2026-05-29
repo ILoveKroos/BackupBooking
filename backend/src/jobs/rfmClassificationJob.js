@@ -2,13 +2,6 @@ const cron = require('node-cron');
 const rfmService = require('../services/rfmService');
 const db = require('../config/db');
 
-let voucherService = null;
-try {
-  voucherService = require('../services/voucherService');
-} catch (err) {
-  console.log('[RFM Job] voucherService not available');
-}
-
 const query = (sql, params = []) =>
   new Promise((resolve, reject) => {
     db.query(sql, params, (err, results) => {
@@ -17,9 +10,67 @@ const query = (sql, params = []) =>
     });
   });
 
-/**
- * Tạo voucher tự động cho khách At Risk (re-engagement)
- */
+const createSystemVoucher = async ({
+  code,
+  discountPercent,
+  minOrderValue,
+  maxDiscountAmount,
+  customerType,
+  maxUsageGlobal,
+  description,
+  validDays
+}) => {
+  const existing = await query('SELECT id FROM vouchers WHERE code = ?', [code]);
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + validDays);
+
+  const result = await query(
+    `INSERT INTO vouchers (
+       code,
+       voucher_type,
+       discount_percent,
+       min_order_value,
+       max_discount_amount,
+       customer_type,
+       max_usage_global,
+       status,
+       description,
+       expiry_date
+     )
+     VALUES (?, 'percentage', ?, ?, ?, ?, ?, 'active', ?, ?)`,
+    [
+      code,
+      discountPercent,
+      minOrderValue,
+      maxDiscountAmount,
+      customerType,
+      maxUsageGlobal,
+      description,
+      expiryDate
+    ]
+  );
+
+  return result.insertId;
+};
+
+const assignSystemVoucher = async (voucherId, customerId, reason) => {
+  await query(
+    `INSERT IGNORE INTO voucher_assignments (
+       voucher_id,
+       customer_id,
+       max_usage_customer,
+       source,
+       reason
+     )
+     VALUES (?, ?, 1, 'system', ?)`,
+    [voucherId, customerId, reason]
+  );
+};
+
 const createReengagementVouchers = async () => {
   try {
     const atRiskCustomers = await rfmService.getAtRiskCustomers();
@@ -27,121 +78,85 @@ const createReengagementVouchers = async () => {
 
     console.log(`[RFM Job] Creating re-engagement vouchers for ${atRiskCustomers.length} At Risk customers`);
 
-    // Check if today's re-engagement voucher already exists
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const voucherCode = `COMEBACK${today}`;
+    const voucherId = await createSystemVoucher({
+      code: `COMEBACK${today}`,
+      discountPercent: 25,
+      minOrderValue: 100000,
+      maxDiscountAmount: 200000,
+      customerType: 'both',
+      maxUsageGlobal: atRiskCustomers.length,
+      description: 'Voucher chao mung tro lai - Giam 25%',
+      validDays: 7
+    });
 
-    const existing = await query('SELECT id FROM vouchers WHERE code = ?', [voucherCode]);
-
-    let voucherId;
-    if (existing.length > 0) {
-      voucherId = existing[0].id;
-    } else {
-      // Create a 25% re-engagement voucher
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 7);
-
-      const result = await query(
-        `INSERT INTO vouchers (code, voucher_type, discount_percent, min_order_value, max_discount_amount, customer_type, max_usage_global, max_usage_per_customer, status, description, expiry_date)
-         VALUES (?, 'percentage', 25, 100000, 200000, 'both', ?, 1, 'active', 'Voucher chào mừng trở lại - Giảm 25%', ?)`,
-        [voucherCode, atRiskCustomers.length, expiryDate]
-      );
-      voucherId = result.insertId;
-    }
-
-    // Assign to At Risk customers
     for (const customer of atRiskCustomers) {
       try {
-        await query(
-          `INSERT IGNORE INTO voucher_assignments (voucher_id, customer_id, source) VALUES (?, ?, 'system')`,
-          [voucherId, customer.id]
-        );
+        await assignSystemVoucher(voucherId, customer.id, 'At Risk re-engagement');
       } catch (assignErr) {
-        // Ignore duplicate assignment errors
+        // Ignore duplicate assignment errors.
       }
     }
 
-    console.log(`[RFM Job] ✅ Re-engagement voucher ${voucherCode} assigned to ${atRiskCustomers.length} customers`);
+    console.log(`[RFM Job] Re-engagement voucher assigned to ${atRiskCustomers.length} customers`);
   } catch (err) {
     console.error('[RFM Job] Error creating re-engagement vouchers:', err.message);
   }
 };
 
-/**
- * Tạo voucher VIP cho Champions
- */
 const createVipVouchers = async () => {
   try {
     const champions = await rfmService.getChampionCustomers();
     if (champions.length === 0) return;
 
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const voucherCode = `VIP${today}`;
-
-    const existing = await query('SELECT id FROM vouchers WHERE code = ?', [voucherCode]);
-
-    let voucherId;
-    if (existing.length > 0) {
-      voucherId = existing[0].id;
-    } else {
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 14);
-
-      const result = await query(
-        `INSERT INTO vouchers (code, voucher_type, discount_percent, min_order_value, max_discount_amount, customer_type, max_usage_global, max_usage_per_customer, status, description, expiry_date)
-         VALUES (?, 'percentage', 15, 0, 300000, 'vip', ?, 1, 'active', 'Voucher VIP dành riêng cho khách hàng thân thiết - Giảm 15%', ?)`,
-        [voucherCode, champions.length, expiryDate]
-      );
-      voucherId = result.insertId;
-    }
+    const voucherId = await createSystemVoucher({
+      code: `VIP${today}`,
+      discountPercent: 15,
+      minOrderValue: 0,
+      maxDiscountAmount: 300000,
+      customerType: 'vip',
+      maxUsageGlobal: champions.length,
+      description: 'Voucher VIP danh rieng cho khach hang than thiet - Giam 15%',
+      validDays: 14
+    });
 
     for (const customer of champions) {
       try {
-        await query(
-          `INSERT IGNORE INTO voucher_assignments (voucher_id, customer_id, source) VALUES (?, ?, 'system')`,
-          [voucherId, customer.id]
-        );
+        await assignSystemVoucher(voucherId, customer.id, 'Champion/VIP reward');
       } catch (assignErr) {
-        // Ignore duplicate
+        // Ignore duplicate assignment errors.
       }
     }
 
-    console.log(`[RFM Job] ✅ VIP voucher ${voucherCode} assigned to ${champions.length} Champions`);
+    console.log(`[RFM Job] VIP voucher assigned to ${champions.length} Champions`);
   } catch (err) {
     console.error('[RFM Job] Error creating VIP vouchers:', err.message);
   }
 };
 
-/**
- * Main job: RFM analysis + auto voucher
- */
 const runRFMJob = async () => {
   try {
     console.log(`[RFM Job] Starting at ${new Date().toLocaleString('vi-VN')}`);
 
-    // 1. Run RFM analysis
     const result = await rfmService.runFullAnalysis();
     console.log(`[RFM Job] Analysis complete: ${result.total} customers`);
 
-    // 2. Create re-engagement vouchers for At Risk
     await createReengagementVouchers();
-
-    // 3. Create VIP vouchers for Champions
     await createVipVouchers();
 
-    console.log('[RFM Job] ✅ Complete');
+    console.log('[RFM Job] Complete');
   } catch (err) {
     console.error('[RFM Job] Error:', err.message);
   }
 };
 
 const startRFMJob = () => {
-  // Run daily at 3:00 AM
   cron.schedule('0 3 * * *', () => {
     runRFMJob();
   });
 
-  console.log('[RFM Job] ✅ RFM classification job scheduled (daily at 3:00 AM)');
+  console.log('[RFM Job] RFM classification job scheduled (daily at 3:00 AM)');
 };
 
 module.exports = { startRFMJob, runRFMJob };

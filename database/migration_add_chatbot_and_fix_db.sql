@@ -202,7 +202,7 @@ VALUES
 -- Insert default FAQ
 INSERT IGNORE INTO chat_faq (question, answer, category, keywords)
 VALUES
-  ('Salon mở cửa lúc mấy giờ?', 'Salon mở cửa từ 9:00 sáng đến 21:00 tối, thứ 2 đến Chủ nhật.', 'Giờ làm việc', 'giờ mở cửa, thời gian, lịch'),
+  ('Salon mở cửa lúc mấy giờ?', 'Thứ 2 đến Thứ 6: 08:00-21:30. Thứ 7 và Chủ nhật: 07:00-23:00. Ca làm được chia sáng/tối theo lịch nhân viên.', 'Giờ làm việc', 'giờ mở cửa, thời gian, lịch'),
   ('L?m sao ?? ??t l?ch h?n?', 'B?n c? th? ??t l?ch h?n tr?c ti?p tr?n ?ng d?ng ho?c g?i ?i?n tho?i cho salon.', '??t l?ch', '??t l?ch, h?n, booking'),
   ('Có chính sách hoàn tiền không?', 'Chúng tôi có chính sách hoàn tiền 100% nếu bạn không hài lòng với dịch vụ.', 'Thanh toán', 'hoàn tiền, refund, tiền'),
   ('Nhân viên có kinh nghiệm không?', 'Tất cả nhân viên của chúng tôi đều có chứng chỉ và kinh nghiệm từ 3 năm trở lên.', 'Nhân viên', 'kinh nghiệm, nhân viên, chuyên môn'),
@@ -212,7 +212,7 @@ VALUES
 INSERT IGNORE INTO chat_bot_responses (trigger_keyword, response_text, response_type, confidence_score)
 VALUES
   ('xin chào|hello|hi', 'Xin chào! 👋 Chào mừng bạn đến với salon chúng tôi. Tôi có thể giúp bạn với điều gì?', 'text', 0.95),
-  ('giờ làm việc|mở cửa|đóng cửa', 'Salon chúng tôi mở cửa từ 9:00 sáng đến 21:00 tối, thứ 2 đến Chủ nhật. Bạn muốn đặt lịch không?', 'suggestion', 0.90),
+  ('giờ làm việc|mở cửa|đóng cửa', 'Salon mở cửa Thứ 2-Thứ 6 từ 08:00-21:30, Thứ 7-Chủ nhật từ 07:00-23:00. Bạn muốn đặt lịch khung giờ nào?', 'suggestion', 0.90),
   ('đặt lịch|booking|hẹn', 'Tuyệt vời! Bạn muốn đặt lịch hẹn nào? Chúng tôi có các dịch vụ: cắt tóc, nhuộm, chăm sóc da...', 'suggestion', 0.92),
   ('giá cả|bao nhiêu tiền|chi phí', 'Giá cả của chúng tôi rất cạnh tranh. Bạn muốn biết giá của dịch vụ nào?', 'suggestion', 0.88),
   ('nhân viên|kỹ thuật viên|chuyên gia', 'Tất cả nhân viên của chúng tôi đều có chứng chỉ và kinh nghiệm. Bạn muốn chọn nhân viên cụ thể không?', 'text', 0.85);

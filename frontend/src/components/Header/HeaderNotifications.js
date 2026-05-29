@@ -74,7 +74,15 @@ const formatDateTime = (value) => {
   return `ngày ${day} tháng ${month} năm ${year}, ${hour} giờ ${minute} phút`;
 };
 
-const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VND`;
+const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
+
+const formatPaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === 'cash') return 'Tiền mặt';
+  if (paymentMethod === 'banking') return 'Ngân hàng';
+  if (paymentMethod === 'vietqr') return 'VietQR';
+  if (paymentMethod === 'vnpay') return 'VNPay';
+  return 'Thanh toán';
+};
 
 const getCustomerNotificationPath = (notification) => {
   if (notification.type === 'payment_paid' && notification.paymentId) {
@@ -141,9 +149,9 @@ const buildCustomerNotifications = (appointments = [], vouchers = []) => {
         type: 'payment_paid',
         tone: 'paid',
         title: `Thanh toán lịch #${appointment.id} thành công`,
-        description: `${formatVnd(appointment.payment_amount || appointment.total_amount)} - ${
-          appointment.payment_method ? String(appointment.payment_method).toUpperCase() : 'PAYMENT'
-        }`,
+        description: `${formatVnd(appointment.payment_amount || appointment.total_amount)} - ${formatPaymentMethodLabel(
+          appointment.payment_method
+        )}`,
         time,
         timestamp: toTimestamp(time),
         paymentId: appointment.payment_id,

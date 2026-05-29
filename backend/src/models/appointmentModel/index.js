@@ -265,16 +265,24 @@ const getAppointmentById = (id, callback) => {
   );
 };
 
-const updateAppointmentStatus = (id, status, callback) => {
-  const query = `
+const updateAppointmentStatus = (id, status, callback, cancelReason = null) => {
+  let query = `
     UPDATE appointments
     SET status = ?,
         cancellation_requested = 0,
         cancellation_requested_at = NULL
-    WHERE id = ?
   `;
+  const params = [status];
 
-  db.query(query, [status, id], (err, result) => {
+  if (cancelReason && status === 'cancelled') {
+    query += `, notes = CONCAT(COALESCE(notes, ''), '\n[Lý do hủy từ nhân viên]: ', ?) `;
+    params.push(cancelReason);
+  }
+
+  query += ` WHERE id = ?`;
+  params.push(id);
+
+  db.query(query, params, (err, result) => {
     if (err) return callback(err);
     callback(null, result);
   });

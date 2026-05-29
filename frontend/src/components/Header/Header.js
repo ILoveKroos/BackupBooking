@@ -87,7 +87,6 @@ function Header({ user, onLogout }) {
           { to: '/admin/dashboard', label: 'Tổng quan' },
           { to: '/admin/services', label: 'Dịch vụ' },
           { to: '/admin/staff', label: 'Nhân viên' },
-          { to: '/admin/customers', label: 'Khách hàng' },
           { to: '/admin/vouchers', label: 'Voucher' },
           { to: '/admin/appointments', label: 'Lịch hẹn' },
           { to: '/admin/schedule', label: 'Lịch NV' },
@@ -105,7 +104,6 @@ function Header({ user, onLogout }) {
           label: 'Thu ngân',
           links: [
             { to: '/staff/dashboard', label: 'Quản lý lịch hẹn' },
-            { to: '/staff/customers', label: 'Khách hàng' },
             { to: '/profile', label: 'Hồ sơ' }
           ]
         };
@@ -233,7 +231,7 @@ function Header({ user, onLogout }) {
                   <Link to="/profile" className="user-menu" onClick={closeMenus}>
                     {user.avatar ? (
                       <img
-                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${user.avatar}`}
+                        src={`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${user.avatar}`}
                         alt={user.name}
                         className="user-avatar-small"
                       />

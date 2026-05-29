@@ -1,6 +1,10 @@
 import api from './api';
 
 const dashboardService = {
+  getOverview: (params = {}) => {
+    return api.get('/admin/dashboard/overview', { params });
+  },
+
   // Lấy tóm tắt dashboard
   getSummary: () => {
     return api.get('/admin/dashboard/summary');

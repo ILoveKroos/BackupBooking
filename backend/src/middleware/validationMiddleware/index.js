@@ -145,6 +145,27 @@ const validateServiceId = [
   handleValidationErrors
 ];
 
+const timeToMinutes = (value) => {
+  const [hour, minute] = String(value || '').split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const getBusinessWindowForDate = (dateValue) => {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return { start: '08:00', end: '21:30', label: '08:00 đến 21:30' };
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = date.getUTCDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  return isWeekend
+    ? { start: '07:00', end: '23:00', label: '07:00 đến 23:00' }
+    : { start: '08:00', end: '21:30', label: '08:00 đến 21:30' };
+};
+
 // Appointment Validations 
 const validateCreateAppointment = [
   body('service_id')
@@ -163,13 +184,17 @@ const validateCreateAppointment = [
       }
       return true;
     }),
-  body('appointment_time') //giờ hẹn phải định dạng HH:MM hoặc HH:MM:SS và trong khoảng 08:00 - 18:00
+  body('appointment_time')
     .matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('Giờ hẹn phải định dạng HH:MM hoặc HH:MM:SS')
     .customSanitizer((value) => (value.length === 5 ? `${value}:00` : value))
-    .custom(value => {
-      const hour = Number(value.split(':')[0]);
-      if (hour < 8 || hour > 18) {
-        throw new Error('Giờ hẹn phải từ 08:00 đến 18:00');
+    .custom((value, { req }) => {
+      const businessWindow = getBusinessWindowForDate(req.body.appointment_date);
+      const appointmentMinutes = timeToMinutes(value);
+      const minMinutes = timeToMinutes(businessWindow.start);
+      const maxMinutes = timeToMinutes(businessWindow.end);
+
+      if (appointmentMinutes < minMinutes || appointmentMinutes > maxMinutes) {
+        throw new Error(`Giờ hẹn phải từ ${businessWindow.label}`);
       }
       return true;
     }),

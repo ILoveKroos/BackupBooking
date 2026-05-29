@@ -35,6 +35,7 @@ const TOOL_REGISTRY = {
     },
     execute: async (args, userId) => {
       const { date, time } = args;
+      const requestedTime = time || '09:00:00';
 
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return { error: 'Ngày không hợp lệ. Vui lòng dùng format YYYY-MM-DD' };
@@ -44,16 +45,27 @@ const TOOL_REGISTRY = {
         SELECT u.id, u.name, sr.role_name
         FROM users u
         LEFT JOIN staff_role sr ON u.staff_role_id = sr.id
-        LEFT JOIN staff_weekly_availability swa ON u.id = swa.staff_id AND swa.day_of_week = DAYOFWEEK(?)
+        JOIN staff_weekly_availability swa
+          ON u.id = swa.staff_id
+          AND swa.day_of_week = WEEKDAY(?)
+          AND TIME(?) >= swa.start_time
+          AND TIME(?) <= swa.end_time
         WHERE u.role = 'staff' AND u.is_active = 1
           AND (sr.role_name IS NULL OR LOWER(sr.role_name) NOT LIKE '%thu ng%')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM staff_leave_requests slr
+            WHERE slr.staff_id = u.id
+              AND slr.status = 'approved'
+              AND ? BETWEEN slr.start_date AND slr.end_date
+          )
           AND u.id NOT IN (
             SELECT staff_id FROM appointments
             WHERE appointment_date = ? AND appointment_time = ? AND status IN ('pending','confirmed')
           )
         ORDER BY u.name
       `;
-      const available = await queryAsync(sql, [date, date, time || '09:00:00']);
+      const available = await queryAsync(sql, [date, requestedTime, requestedTime, date, date, requestedTime]);
 
       return {
         date,
@@ -320,13 +332,13 @@ const TOOL_REGISTRY = {
     execute: async (args, userId) => {
       // Public vouchers (không cần đăng nhập)
       const publicVouchers = await queryAsync(
-        `SELECT code, discount_type, discount_value, max_discount_amount, min_order_amount, valid_until, description
+        `SELECT code, voucher_type, discount_amount, discount_percent, max_discount_amount, min_order_value, expiry_date, description
          FROM vouchers
-         WHERE is_active = 1
-           AND valid_from <= NOW() AND valid_until >= NOW()
-           AND (used_count < max_usage OR max_usage IS NULL)
-           AND customer_group IN ('both', 'regular')
-         ORDER BY discount_value DESC
+         WHERE status = 'active'
+           AND expiry_date >= NOW()
+           AND (max_usage_global IS NULL OR current_usage < max_usage_global)
+           AND customer_type IN ('both', 'regular')
+         ORDER BY CASE WHEN voucher_type = 'percentage' THEN discount_percent ELSE discount_amount END DESC
          LIMIT 5`
       );
 
@@ -334,13 +346,15 @@ const TOOL_REGISTRY = {
       let personalVouchers = [];
       if (userId) {
         personalVouchers = await queryAsync(
-          `SELECT v.code, v.discount_type, v.discount_value, v.max_discount_amount, v.valid_until, v.description
+          `SELECT v.code, v.voucher_type, v.discount_amount, v.discount_percent, v.max_discount_amount, v.min_order_value, v.expiry_date, v.description
            FROM voucher_assignments va
            JOIN vouchers v ON va.voucher_id = v.id
-           WHERE va.user_id = ? AND va.is_used = 0
-             AND v.is_active = 1
-             AND v.valid_until >= NOW()
-           ORDER BY v.valid_until ASC
+           WHERE va.customer_id = ?
+             AND va.status = 'active'
+             AND va.usage_count < va.max_usage_customer
+             AND v.status = 'active'
+             AND v.expiry_date >= NOW()
+           ORDER BY v.expiry_date ASC
            LIMIT 5`,
           [userId]
         );
@@ -348,9 +362,15 @@ const TOOL_REGISTRY = {
 
       const formatVoucher = (v) => ({
         code: v.code,
-        type: v.discount_type === 'percentage' ? `Giảm ${v.discount_value}%` : `Giảm ${Number(v.discount_value).toLocaleString('vi-VN')} VNĐ`,
-        max_discount: v.max_discount_amount ? `Tối đa ${Number(v.max_discount_amount).toLocaleString('vi-VN')} VNĐ` : null,
-        valid_until: v.valid_until,
+        type:
+          v.voucher_type === 'percentage'
+            ? `Giam ${Number(v.discount_percent || 0)}%`
+            : `Giam ${Number(v.discount_amount || 0).toLocaleString('vi-VN')} VND`,
+        max_discount: v.max_discount_amount
+          ? `Toi da ${Number(v.max_discount_amount).toLocaleString('vi-VN')} VND`
+          : null,
+        min_order: `${Number(v.min_order_value || 0).toLocaleString('vi-VN')} VND`,
+        valid_until: v.expiry_date,
         description: v.description
       });
 
@@ -415,11 +435,10 @@ const TOOL_REGISTRY = {
       return {
         business_name: 'BeautyBook Salon',
         hours: {
-          'Thứ 2 - Thứ 6': '08:00 - 20:00',
-          'Thứ 7': '08:00 - 21:00',
-          'Chủ nhật': '09:00 - 18:00'
+          'Thứ 2 - Thứ 6': '08:00 - 21:30',
+          'Thứ 7 - Chủ nhật': '07:00 - 23:00'
         },
-        note: 'Nhận khách cuối cùng trước giờ đóng cửa 1 tiếng. Ngày lễ có thể thay đổi.',
+        note: 'Ca sáng và ca tối được quản lý theo lịch nhân viên. Ngày nghỉ xử lý bằng yêu cầu xin nghỉ đã duyệt.',
         contact: 'Liên hệ qua hotline hoặc đặt lịch trực tiếp trên website.'
       };
     }

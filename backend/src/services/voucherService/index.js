@@ -69,7 +69,16 @@ class VoucherService {
     this.db = db.promise();
   }
 
+  async autoExpireVouchers() {
+    try {
+      await this.db.query("UPDATE vouchers SET status = 'expired' WHERE expiry_date <= NOW() AND status = 'active'");
+    } catch (err) {
+      console.error('[VoucherAutoExpire] Error:', err.message);
+    }
+  }
+
   async getAllVouchers() {
+    await this.autoExpireVouchers();
     const [rows] = await this.db.query(`
       ${getVoucherSelect()}
       ORDER BY v.created_at DESC
@@ -79,6 +88,7 @@ class VoucherService {
   }
 
   async getVoucherById(voucherId) {
+    await this.autoExpireVouchers();
     const [rows] = await this.db.query(
       `
         ${getVoucherSelect()}
@@ -92,6 +102,7 @@ class VoucherService {
   }
 
   async getVoucherByCode(code) {
+    await this.autoExpireVouchers();
     const normalizedCode = normalizeVoucherCode(code);
     if (!normalizedCode) {
       return null;
@@ -219,7 +230,7 @@ class VoucherService {
     return result;
   }
 
-  async assignVoucherToCustomer(voucherId, customerId, maxUsageCustomer = 1) {
+  async assignVoucherToCustomer(voucherId, customerId, maxUsageCustomer = 1, options = {}) {
     const [customers] = await this.db.query(
       "SELECT id, name, email FROM users WHERE id = ? AND role = 'customer' AND is_active = 1 LIMIT 1",
       [customerId]
@@ -233,14 +244,35 @@ class VoucherService {
 
     const [result] = await this.db.query(
       `
-        INSERT INTO voucher_assignments (voucher_id, customer_id, max_usage_customer, status)
-        VALUES (?, ?, ?, 'active')
+        INSERT INTO voucher_assignments (
+          voucher_id,
+          customer_id,
+          max_usage_customer,
+          status,
+          source,
+          reason,
+          confidence_score,
+          shown_date
+        )
+        VALUES (?, ?, ?, 'active', ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           max_usage_customer = VALUES(max_usage_customer),
           status = IF(usage_count >= VALUES(max_usage_customer), 'used', 'active'),
+          source = VALUES(source),
+          reason = COALESCE(VALUES(reason), reason),
+          confidence_score = COALESCE(VALUES(confidence_score), confidence_score),
+          shown_date = COALESCE(VALUES(shown_date), shown_date),
           updated_at = NOW()
       `,
-      [voucherId, customerId, Number(maxUsageCustomer) || 1]
+      [
+        voucherId,
+        customerId,
+        Number(maxUsageCustomer) || 1,
+        ['admin', 'system', 'bot'].includes(options.source) ? options.source : 'admin',
+        options.reason || null,
+        toNullableNumber(options.confidence_score ?? options.confidenceScore),
+        options.shown_date || options.shownDate || null
+      ]
     );
 
     return {
@@ -249,12 +281,12 @@ class VoucherService {
     };
   }
 
-  async assignVoucherToCustomers(voucherId, customerIds = [], maxUsageCustomer = 1) {
+  async assignVoucherToCustomers(voucherId, customerIds = [], maxUsageCustomer = 1, options = {}) {
     const uniqueCustomerIds = [...new Set(customerIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
     const assignments = [];
 
     for (const customerId of uniqueCustomerIds) {
-      const assignment = await this.assignVoucherToCustomer(voucherId, customerId, maxUsageCustomer);
+      const assignment = await this.assignVoucherToCustomer(voucherId, customerId, maxUsageCustomer, options);
       assignments.push({
         customerId,
         ...assignment
@@ -311,6 +343,7 @@ class VoucherService {
   }
 
   async validateVoucherForCustomer({ customerId, code, subtotal }) {
+    await this.autoExpireVouchers();
     const normalizedCode = normalizeVoucherCode(code);
     const safeSubtotal = Number(subtotal || 0);
 
@@ -399,6 +432,7 @@ class VoucherService {
   }
 
   async getCustomerVouchers(customerId) {
+    await this.autoExpireVouchers();
     const [rows] = await this.db.query(
       `
         SELECT
@@ -446,32 +480,30 @@ class VoucherService {
     await this.db.beginTransaction();
 
     try {
-      await this.db.query(
-        `
-          INSERT INTO voucher_usage_history (
-            voucher_id,
-            assignment_id,
-            customer_id,
-            appointment_id,
-            discount_applied
-          )
-          VALUES (?, ?, ?, ?, ?)
-        `,
-        [voucherId, assignmentId, customerId, appointmentId, discountApplied]
-      );
-
-      await this.db.query(
+      const [assignmentUpdate] = await this.db.query(
         `
           UPDATE voucher_assignments
           SET
             usage_count = usage_count + 1,
             last_used_date = NOW(),
+            last_appointment_id = ?,
+            last_discount_applied = ?,
+            total_discount_applied = total_discount_applied + ?,
+            applied = 1,
             is_used = CASE WHEN usage_count + 1 >= max_usage_customer THEN 1 ELSE is_used END,
             status = CASE WHEN usage_count + 1 >= max_usage_customer THEN 'used' ELSE status END
           WHERE id = ?
+            AND voucher_id = ?
+            AND customer_id = ?
         `,
-        [assignmentId]
+        [appointmentId, discountApplied, discountApplied, assignmentId, voucherId, customerId]
       );
+
+      if (!assignmentUpdate.affectedRows) {
+        const error = new Error('Không tìm thấy voucher đã gán để ghi nhận lượt dùng');
+        error.status = 404;
+        throw error;
+      }
 
       await this.db.query(
         `
@@ -504,10 +536,10 @@ class VoucherService {
       SELECT
         v.code,
         v.description,
-        COUNT(vuh.id) AS usage_count,
-        COALESCE(SUM(vuh.discount_applied), 0) AS discount_total
+        COALESCE(SUM(va.usage_count), 0) AS usage_count,
+        COALESCE(SUM(va.total_discount_applied), 0) AS discount_total
       FROM vouchers v
-      LEFT JOIN voucher_usage_history vuh ON vuh.voucher_id = v.id
+      LEFT JOIN voucher_assignments va ON va.voucher_id = v.id
       GROUP BY v.id
       ORDER BY usage_count DESC, v.created_at DESC
       LIMIT 10

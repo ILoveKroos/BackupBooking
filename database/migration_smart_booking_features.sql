@@ -1,7 +1,7 @@
 -- Migration: Smart Booking Features
--- Adds columns for RFM segmentation, cancellation scoring, sentiment tracking, and appointment reminders
+-- Adds columns for Customer Clustering, cancellation scoring, sentiment tracking, and appointment reminders
 
--- 1. Users table: RFM & customer classification
+-- 1. Users table: Customer clustering & classification
 ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_segment VARCHAR(30) DEFAULT 'New';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rfm_score VARCHAR(10) DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rfm_updated_at TIMESTAMP NULL DEFAULT NULL;

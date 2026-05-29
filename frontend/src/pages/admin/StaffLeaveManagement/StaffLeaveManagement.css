@@ -111,7 +111,7 @@
 
 .staff-leave-stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -208,10 +208,6 @@
   background: #f8fbff;
 }
 
-.staff-leave-table tbody tr.is-off {
-  background: #f9fbfd;
-}
-
 .staff-leave-day-cell {
   display: grid;
   gap: 6px;
@@ -241,12 +237,6 @@
   border-color: #a7f3d0;
 }
 
-.staff-leave-day-badge.off {
-  background: #fff1f2;
-  color: #be123c;
-  border-color: #fecdd3;
-}
-
 .staff-leave-table input[type='checkbox'] {
   width: 18px;
   height: 18px;
@@ -271,6 +261,38 @@
 
 .staff-leave-table input[type='time']:disabled {
   background: #f8fafc;
+  color: #94a3b8;
+}
+
+.staff-shift-select {
+  min-width: 160px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #12223b;
+  font-size: 14px;
+}
+
+.staff-shift-select:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.staff-shift-time {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.staff-shift-time.muted {
   color: #94a3b8;
 }
 

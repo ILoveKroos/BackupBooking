@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
   discount_percent INT NULL,
   min_order_value DECIMAL(10,2) NOT NULL DEFAULT 0,
   max_discount_amount DECIMAL(10,2) NULL,
-  customer_type ENUM('regular', 'vip', 'both') NOT NULL DEFAULT 'both',
+  customer_type ENUM('regular', 'vip', 'vvip', 'vvvip', 'both') NOT NULL DEFAULT 'both',
   description TEXT NULL,
   issued_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expiry_date DATETIME NOT NULL,
@@ -85,59 +85,29 @@ CREATE TABLE IF NOT EXISTS voucher_assignments (
   last_used_date TIMESTAMP NULL,
   is_used TINYINT(1) NOT NULL DEFAULT 0,
   status ENUM('active', 'used', 'expired') NOT NULL DEFAULT 'active',
+  source ENUM('admin', 'system', 'bot') NOT NULL DEFAULT 'admin',
+  reason VARCHAR(255) NULL,
+  confidence_score FLOAT NULL,
+  shown_date TIMESTAMP NULL,
+  clicked TINYINT(1) NOT NULL DEFAULT 0,
+  applied TINYINT(1) NOT NULL DEFAULT 0,
+  last_appointment_id INT NULL,
+  last_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_voucher_customer (voucher_id, customer_id),
   INDEX idx_voucher_assignments_customer (customer_id),
   INDEX idx_voucher_assignments_voucher (voucher_id),
   INDEX idx_voucher_assignments_status (status),
+  INDEX idx_voucher_assignments_source (source),
+  INDEX idx_voucher_assignments_shown_date (shown_date),
   CONSTRAINT fk_voucher_assignments_voucher
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
   CONSTRAINT fk_voucher_assignments_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS voucher_usage_history (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  voucher_id INT NOT NULL,
-  assignment_id INT NULL,
-  customer_id INT NOT NULL,
-  appointment_id INT NULL,
-  discount_applied DECIMAL(10,2) NOT NULL,
-  used_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_voucher_usage_customer (customer_id),
-  INDEX idx_voucher_usage_voucher (voucher_id),
-  INDEX idx_voucher_usage_appointment (appointment_id),
-  INDEX idx_voucher_usage_used_date (used_date),
-  CONSTRAINT fk_voucher_usage_voucher
-    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_usage_assignment
-    FOREIGN KEY (assignment_id) REFERENCES voucher_assignments(id) ON DELETE SET NULL,
-  CONSTRAINT fk_voucher_usage_customer
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_usage_appointment
-    FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS voucher_suggestions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  customer_id INT NOT NULL,
-  voucher_id INT NOT NULL,
-  reason VARCHAR(255) NULL,
-  confidence_score FLOAT NULL,
-  shown_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  clicked TINYINT(1) NOT NULL DEFAULT 0,
-  applied TINYINT(1) NOT NULL DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_voucher_suggestions_customer (customer_id),
-  INDEX idx_voucher_suggestions_voucher (voucher_id),
-  INDEX idx_voucher_suggestions_shown_date (shown_date),
-  INDEX idx_voucher_suggestions_reason (reason),
-  CONSTRAINT fk_voucher_suggestions_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_suggestions_voucher
-    FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
+  CONSTRAINT fk_voucher_assignments_last_appointment
+    FOREIGN KEY (last_appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO vouchers (

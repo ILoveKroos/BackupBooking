@@ -13,6 +13,7 @@ function ServiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [service, setService] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const user = authService.getUser();
@@ -29,6 +30,19 @@ function ServiceDetail() {
           setService(response.data.data);
           setError('');
         }
+
+        serviceService
+          .getRecommendations(id, 3)
+          .then((recommendationResponse) => {
+            if (!cancelled) {
+              setRecommendations(recommendationResponse.data?.data?.recommendations || []);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setRecommendations([]);
+            }
+          });
       } catch (err) {
         if (!cancelled) {
           setError('Không thể tải thông tin dịch vụ.');
@@ -111,6 +125,31 @@ function ServiceDetail() {
             <p>Thông tin lịch hẹn được lưu theo tài khoản để bạn dễ theo dõi và kiểm tra lại.</p>
           </article>
         </div>
+
+        {recommendations.length > 0 && (
+          <section className="service-recommendations" aria-label="Gợi ý dịch vụ đi kèm">
+            <div className="recommendation-head">
+              <span>Gợi ý thêm</span>
+              <h2>Dịch vụ khách thường đặt liên quan</h2>
+              <p>Tham khảo thêm những lựa chọn phù hợp để hoàn thiện lịch làm đẹp của bạn.</p>
+            </div>
+
+            <div className="recommendation-grid">
+              {recommendations.map((item) => (
+                <article key={item.id} className="recommendation-card">
+                  <div>
+                    <small>{item.category || 'Dịch vụ làm đẹp'}</small>
+                    <h3>{item.name}</h3>
+                    <p>{item.reason}</p>
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={() => navigate(`/services/${item.id}`)}>
+                    Xem dịch vụ
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
       </section>
 
       <aside className="service-sidebar">

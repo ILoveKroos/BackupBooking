@@ -2,28 +2,29 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import bookingService from '../../../services/bookingService';
 import staffService from '../../../services/staffService';
 import { exportToExcel } from '../../../utils/exportExcel';
-import { startOfWeek, endOfWeek, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import './StaffScheduleCalendar.css';
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
-const HOUR_HEIGHT = 72; // px per hour
-const START_HOUR = 0;
-const END_HOUR = 23;
+const HOUR_HEIGHT = 80; // px per hour — taller for readability
+const START_HOUR = 7;   // 7:00 — salon open
+const END_HOUR = 21;    // 21:00 — salon close
 
+// Boulevard-inspired bold color palette
 const STAFF_COLORS = [
-  { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
-  { bg: '#fce7f3', border: '#ec4899', text: '#9d174d' },
-  { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
-  { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
-  { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
-  { bg: '#fce4ec', border: '#ef5350', text: '#b71c1c' },
-  { bg: '#e0f2f1', border: '#26a69a', text: '#004d40' },
-  { bg: '#f3e5f5', border: '#ab47bc', text: '#4a148c' },
-  { bg: '#fff3e0', border: '#ff9800', text: '#e65100' },
-  { bg: '#e8f5e9', border: '#66bb6a', text: '#1b5e20' }
+  { bg: '#FFF8E1', border: '#F5C542', text: '#7B6B1A' },  // Warm Yellow
+  { bg: '#E1F5FE', border: '#4FC3F7', text: '#0D47A1' },  // Sky Blue
+  { bg: '#FCE4EC', border: '#F48FB1', text: '#880E4F' },  // Pink
+  { bg: '#E8F5E9', border: '#81C784', text: '#1B5E20' },  // Green
+  { bg: '#FFEBEE', border: '#EF5350', text: '#B71C1C' },  // Red
+  { bg: '#F3E5F5', border: '#CE93D8', text: '#4A148C' },  // Purple
+  { bg: '#E0F2F1', border: '#4DB6AC', text: '#004D40' },  // Teal
+  { bg: '#FFF3E0', border: '#FFB74D', text: '#E65100' },  // Orange
+  { bg: '#E8EAF6', border: '#7986CB', text: '#1A237E' },  // Indigo
+  { bg: '#F1F8E9', border: '#AED581', text: '#33691E' }   // Lime
 ];
 
 const formatDateISO = (date) => {
@@ -45,12 +46,6 @@ const formatDateDisplay = (date, viewMode) => {
     const e = endOfWeek(d, { weekStartsOn: 1 });
     return `${s.getDate()}/${s.getMonth() + 1} - ${e.getDate()}/${e.getMonth() + 1}/${e.getFullYear()}`;
   }
-  if (viewMode === 'month') {
-    return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
-  }
-  if (viewMode === 'year') {
-    return `Năm ${d.getFullYear()}`;
-  }
   return formatDateISO(date);
 };
 
@@ -60,12 +55,18 @@ const parseTimeToMinutes = (timeStr) => {
   return parseInt(parts[0], 10) * 60 + parseInt(parts[1] || '0', 10);
 };
 
+const formatTime12h = (minutes) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+};
+
 const getStatusInfo = (status) => {
   const map = {
-    pending: { label: 'Chờ XN', cls: 'pending' },
-    confirmed: { label: 'Đã XN', cls: 'confirmed' },
-    completed: { label: 'Xong', cls: 'completed' },
-    cancelled: { label: 'Hủy', cls: 'cancelled' }
+    pending: { label: 'Chờ xác nhận', cls: 'pending' },
+    confirmed: { label: 'Đã xác nhận', cls: 'confirmed' },
+    completed: { label: 'Hoàn thành', cls: 'completed' },
+    cancelled: { label: 'Đã hủy', cls: 'cancelled' }
   };
   return map[status] || { label: status, cls: 'default' };
 };
@@ -102,15 +103,11 @@ const AppointmentBlock = ({ appointment, color, onClick }) => {
   const startMinutes = parseTimeToMinutes(appointment.appointment_time);
   const duration = Number(appointment.total_duration || appointment.duration || 60);
   const topPx = ((startMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
-  const heightPx = Math.max((duration / 60) * HOUR_HEIGHT - 4, 28);
+  const heightPx = Math.max((duration / 60) * HOUR_HEIGHT - 3, 30);
   const statusInfo = getStatusInfo(appointment.status);
 
-  const startH = Math.floor(startMinutes / 60);
-  const startM = startMinutes % 60;
   const endMinutes = startMinutes + duration;
-  const endH = Math.floor(endMinutes / 60);
-  const endM = endMinutes % 60;
-  const timeLabel = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')} - ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+  const timeLabel = `${formatTime12h(startMinutes)}`;
 
   return (
     <div
@@ -119,16 +116,18 @@ const AppointmentBlock = ({ appointment, color, onClick }) => {
         top: `${topPx}px`,
         height: `${heightPx}px`,
         background: color.bg,
-        borderLeft: `4px solid ${color.border}`,
+        borderLeftColor: color.border,
         color: color.text
       }}
       onClick={() => onClick(appointment)}
-      title={`${appointment.customer_name} - ${appointment.service_name}`}
+      title={`${appointment.customer_name} — ${appointment.service_name} (${formatTime12h(startMinutes)} - ${formatTime12h(endMinutes)})`}
     >
       <div className="sc-appt-time">{timeLabel}</div>
       <div className="sc-appt-customer">{appointment.customer_name}</div>
-      <div className="sc-appt-service">{appointment.service_name}</div>
-      {heightPx > 56 && (
+      {heightPx > 42 && (
+        <div className="sc-appt-service">{appointment.service_name}</div>
+      )}
+      {heightPx > 64 && (
         <div className="sc-appt-duration">{duration} phút</div>
       )}
     </div>
@@ -181,7 +180,7 @@ const AppointmentDetailModal = ({ appointment, onClose, onStatusChange, processi
       <div className="sc-modal" onClick={(e) => e.stopPropagation()}>
         <div className="sc-modal-header">
           <h3>Chi tiết lịch hẹn #{appointment.id}</h3>
-          <button className="sc-modal-close" onClick={onClose}>×</button>
+          <button className="sc-modal-close" onClick={onClose} aria-label="Đóng">×</button>
         </div>
         <div className="sc-modal-body">
           <div className="sc-detail-row">
@@ -305,14 +304,6 @@ function StaffScheduleCalendar() {
         const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
         const end = endOfWeek(selectedDate, { weekStartsOn: 1 });
         return isWithinInterval(aDate, { start, end });
-      } else if (viewMode === 'month') {
-        const start = startOfMonth(selectedDate);
-        const end = endOfMonth(selectedDate);
-        return isWithinInterval(aDate, { start, end });
-      } else if (viewMode === 'year') {
-        const start = startOfYear(selectedDate);
-        const end = endOfYear(selectedDate);
-        return isWithinInterval(aDate, { start, end });
       }
       return false;
     });
@@ -365,8 +356,6 @@ function StaffScheduleCalendar() {
     const n = new Date(d); 
     if (viewMode === 'day') n.setDate(n.getDate() - 1); 
     else if (viewMode === 'week') n.setDate(n.getDate() - 7);
-    else if (viewMode === 'month') n.setMonth(n.getMonth() - 1);
-    else if (viewMode === 'year') n.setFullYear(n.getFullYear() - 1);
     
     // Check min date
     if (n < new Date('2026-01-01')) return new Date('2026-01-01');
@@ -377,8 +366,6 @@ function StaffScheduleCalendar() {
     const n = new Date(d); 
     if (viewMode === 'day') n.setDate(n.getDate() + 1); 
     else if (viewMode === 'week') n.setDate(n.getDate() + 7);
-    else if (viewMode === 'month') n.setMonth(n.getMonth() + 1);
-    else if (viewMode === 'year') n.setFullYear(n.getFullYear() + 1);
     return n; 
   });
 
@@ -452,14 +439,12 @@ function StaffScheduleCalendar() {
 
   return (
     <div className="staff-schedule-calendar">
-      {/* ── Toolbar ── */}
+      {/* ── Toolbar — Dark Boulevard bar ── */}
       <div className="sc-toolbar">
         <div className="sc-toolbar-left">
           <div className="sc-view-modes">
             <button className={`sc-mode-btn ${viewMode === 'day' ? 'active' : ''}`} onClick={() => setViewMode('day')}>Ngày</button>
             <button className={`sc-mode-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>Tuần</button>
-            <button className={`sc-mode-btn ${viewMode === 'month' ? 'active' : ''}`} onClick={() => setViewMode('month')}>Tháng</button>
-            <button className={`sc-mode-btn ${viewMode === 'year' ? 'active' : ''}`} onClick={() => setViewMode('year')}>Năm</button>
           </div>
           
           <button className={`sc-btn-today ${isToday && viewMode === 'day' ? 'active' : ''}`} onClick={goToday}>
@@ -566,7 +551,7 @@ function StaffScheduleCalendar() {
           </div>
         </div>
       ) : (
-        /* ── Table View for Week/Month/Year ── */
+        /* ── Table View for Week ── */
         <div className="sc-table-container">
           {periodAppointments.filter(a => !a.staff_id || activeStaffIds.has(a.staff_id)).length > 0 ? (
             <table className="sc-list-table">

@@ -18,7 +18,9 @@ const {
 const VNPAY_SUCCESS_CODE = '00';
 const DEFAULT_VIETQR_EXPIRE_MINUTES = 720;
 const DEFAULT_VIETQR_EXPIRE_SECONDS = 300;
-const SUPPORTED_PAYMENT_METHODS = new Set(['cash', 'vnpay', 'vietqr']);
+const OFFLINE_PAYMENT_METHODS = new Set(['cash', 'banking']);
+const MANUAL_CONFIRMABLE_PAYMENT_METHODS = new Set(['cash', 'banking', 'vietqr']);
+const SUPPORTED_PAYMENT_METHODS = new Set(['cash', 'banking', 'vnpay', 'vietqr']);
 
 const normalizePaymentMethod = (paymentMethod) => {
   const normalizedMethod = String(paymentMethod || '').toLowerCase();
@@ -27,6 +29,26 @@ const normalizePaymentMethod = (paymentMethod) => {
   }
 
   return normalizedMethod;
+};
+
+const getPaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === 'cash') {
+    return 'tiền mặt';
+  }
+
+  if (paymentMethod === 'banking') {
+    return 'chuyển khoản ngân hàng';
+  }
+
+  if (paymentMethod === 'vietqr') {
+    return 'VietQR';
+  }
+
+  if (paymentMethod === 'vnpay') {
+    return 'VNPay';
+  }
+
+  return paymentMethod || 'thanh toán';
 };
 
 const getFrontendBaseUrl = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -349,13 +371,19 @@ const buildPaymentOptions = (req, schemaInfo) => {
   const options = [
     {
       method: 'cash',
-      label: 'Thanh toán tại salon',
-      description: 'Đặt lịch trước và thanh toán khi khách đến sử dụng dịch vụ.',
+      label: 'Tiền mặt tại salon',
+      description: 'Khách thanh toán trực tiếp bằng tiền mặt khi đến sử dụng dịch vụ.',
+      enabled: true
+    },
+    {
+      method: 'banking',
+      label: 'Chuyển khoản tại salon',
+      description: 'Khách chuyển khoản ngân hàng và thu ngân xác nhận thủ công tại quầy.',
       enabled: true
     },
     {
       method: 'vietqr',
-      label: 'Chuyển khoản ngân hàng',
+      label: 'VietQR ngân hàng',
       description: 'Quét mã QR ngân hàng với số tiền và nội dung chuyển khoản có sẵn.',
       enabled: vietQrEnabled
     },
@@ -370,6 +398,7 @@ const buildPaymentOptions = (req, schemaInfo) => {
   const recommendedMethod =
     options.find((option) => option.enabled && option.method === 'vnpay')?.method ||
     options.find((option) => option.enabled && option.method === 'vietqr')?.method ||
+    options.find((option) => option.enabled && option.method === 'banking')?.method ||
     options.find((option) => option.enabled && option.method === 'cash')?.method ||
     options.find((option) => option.enabled)?.method ||
     'cash';
@@ -419,7 +448,7 @@ exports.createPayment = (req, res) => {
   if (!SUPPORTED_PAYMENT_METHODS.has(normalizedMethod)) {
     return res.status(400).json({
       success: false,
-      message: 'Hệ thống hiện hỗ trợ thanh toán cash, vietqr hoặc vnpay'
+      message: 'Hệ thống hiện hỗ trợ thanh toán cash, banking, vietqr hoặc vnpay'
     });
   }
 
@@ -454,7 +483,7 @@ exports.createPayment = (req, res) => {
       }
 
       if (
-        normalizedMethod === 'cash' &&
+        OFFLINE_PAYMENT_METHODS.has(normalizedMethod) &&
         Number(appointment.deposit_required) === 1 &&
         Number(appointment.deposit_amount || 0) > 0
       ) {
@@ -553,7 +582,11 @@ exports.createPayment = (req, res) => {
               });
 
               if (normalizedMethod === 'cash') {
-                return respondWithPayment(res, 201, 'Đã tạo phiếu thanh toán tại salon', createdPayment);
+                return respondWithPayment(res, 201, 'Đã tạo phiếu thu tiền mặt tại salon', createdPayment);
+              }
+
+              if (normalizedMethod === 'banking') {
+                return respondWithPayment(res, 201, 'Đã tạo phiếu chuyển khoản tại salon', createdPayment);
               }
 
               if (normalizedMethod === 'vietqr') {
@@ -576,7 +609,7 @@ exports.createPayment = (req, res) => {
       });
     });
 
-  if (normalizedMethod === 'cash') {
+  if (OFFLINE_PAYMENT_METHODS.has(normalizedMethod)) {
     return startCreatePayment();
   }
 
@@ -617,11 +650,12 @@ exports.verifyPayment = (req, res) => {
 
 exports.confirmTransferPayment = (req, res) => {
   const { payment_id } = req.params;
+  const requestedMethod = normalizePaymentMethod(req.body?.payment_method);
 
   if (!canConfirmTransferPayment(req.user)) {
     return res.status(403).json({
       success: false,
-      message: 'Bạn không có quyền xác nhận thanh toán chuyển khoản'
+      message: 'Bạn không có quyền xác nhận thanh toán'
     });
   }
 
@@ -641,10 +675,19 @@ exports.confirmTransferPayment = (req, res) => {
       });
     }
 
-    if (payment.payment_method !== 'vietqr') {
+    const finalPaymentMethod = requestedMethod || payment.payment_method;
+
+    if (!MANUAL_CONFIRMABLE_PAYMENT_METHODS.has(finalPaymentMethod)) {
       return res.status(400).json({
         success: false,
-        message: 'Chỉ hỗ trợ xác nhận thủ công cho giao dịch VietQR'
+        message: 'Chỉ hỗ trợ xác nhận thủ công cho tiền mặt, chuyển khoản ngân hàng hoặc VietQR'
+      });
+    }
+
+    if (!MANUAL_CONFIRMABLE_PAYMENT_METHODS.has(payment.payment_method)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Giao dịch này không hỗ trợ xác nhận thủ công'
       });
     }
 
@@ -664,17 +707,25 @@ exports.confirmTransferPayment = (req, res) => {
     }
 
     const confirmedAt = new Date();
+    const transactionPrefix =
+      finalPaymentMethod === 'cash' ? 'CASH' : finalPaymentMethod === 'banking' ? 'BANK' : 'VQR';
+    const bankCode =
+      finalPaymentMethod === 'cash'
+        ? null
+        : payment.bank_code || (finalPaymentMethod === 'vietqr' ? 'VietQR' : 'BANKING');
     const updateData = {
+      payment_method: finalPaymentMethod,
       payment_status: 'paid',
       paid_at: confirmedAt,
-      bank_code: payment.bank_code || 'VietQR',
+      bank_code: bankCode,
       gateway_response_code: 'MANUAL',
       gateway_transaction_status: 'MANUAL',
-      transaction_code: payment.transaction_code || `VQR-${payment.id}-${confirmedAt.getTime()}`,
+      transaction_code: payment.transaction_code || `${transactionPrefix}-${payment.id}-${confirmedAt.getTime()}`,
       gateway_payload: JSON.stringify({
-        mode: 'manual_vietqr_confirmation',
+        mode: `manual_${finalPaymentMethod}_confirmation`,
         confirmed_by_user_id: req.user.id,
         confirmed_by_role: req.user.role,
+        original_payment_method: payment.payment_method,
         confirmed_at: confirmedAt.toISOString()
       })
     };
@@ -708,12 +759,12 @@ exports.confirmTransferPayment = (req, res) => {
           paymentId: payment.id,
           appointmentId: payment.appointment_id,
           amount: payment.amount,
-          method: payment.payment_method
+          method: finalPaymentMethod
         });
 
         return res.status(200).json({
           success: true,
-          message: 'Đã xác nhận thanh toán VietQR thành công',
+          message: `Đã xác nhận thanh toán ${getPaymentMethodLabel(finalPaymentMethod)} thành công`,
           data: buildPaymentClientPayload(refreshedPayment)
         });
       });

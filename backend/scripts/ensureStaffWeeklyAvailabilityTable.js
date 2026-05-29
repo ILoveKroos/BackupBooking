@@ -35,6 +35,27 @@ async function main() {
     } else {
       console.log('staff_weekly_availability exists');
     }
+    await run(`
+      INSERT INTO staff_weekly_availability (staff_id, day_of_week, start_time, end_time)
+      SELECT
+        u.id,
+        d.day_of_week,
+        CASE WHEN d.day_of_week BETWEEN 0 AND 4 THEN '08:00:00' ELSE '07:00:00' END,
+        CASE WHEN d.day_of_week BETWEEN 0 AND 4 THEN '16:00:00' ELSE '15:00:00' END
+      FROM users u
+      JOIN (
+        SELECT 0 AS day_of_week UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+        UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+      ) d
+      WHERE u.role = 'staff'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM staff_weekly_availability swa
+          WHERE swa.staff_id = u.id
+            AND swa.day_of_week = d.day_of_week
+        )
+    `);
+    console.log('Backfilled missing default weekly shifts');
     console.log('Done.');
   } catch (e) {
     console.error(e.message);

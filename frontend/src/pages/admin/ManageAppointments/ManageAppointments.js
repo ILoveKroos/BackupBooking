@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import authService from '../../../services/authService';
 import bookingService from '../../../services/bookingService';
-import paymentService from '../../../services/paymentService';
 import { exportToExcel } from '../../../utils/exportExcel';
 import './ManageAppointments.css';
 
@@ -35,8 +34,15 @@ const getDisplayStatus = (appointment) => {
   return statusMap[appointment?.status] || appointment?.status || 'Không rõ';
 };
 
+const normalizeRoleName = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
 const isCashierStaffUser = (user) =>
-  user?.role === 'staff' && (user?.staff_role_name || '').trim().toLowerCase() === 'thu ngân';
+  user?.role === 'staff' && normalizeRoleName(user?.staff_role_name) === 'thu ngan';
 
 const getStatusToneClass = (appointment) => {
   if (hasCancellationRequest(appointment)) {
@@ -74,6 +80,26 @@ const getPaymentLabel = (appointment) => {
   return 'Chưa tạo';
 };
 
+const formatPaymentMethodLabel = (paymentMethod) => {
+  if (paymentMethod === 'cash') {
+    return 'Tiền mặt';
+  }
+
+  if (paymentMethod === 'banking') {
+    return 'Ngân hàng';
+  }
+
+  if (paymentMethod === 'vietqr') {
+    return 'VietQR';
+  }
+
+  if (paymentMethod === 'vnpay') {
+    return 'VNPay';
+  }
+
+  return paymentMethod ? String(paymentMethod).toUpperCase() : 'Chưa chọn';
+};
+
 const formatAppointmentSlot = (appointment) => {
   if (!appointment?.appointment_date) {
     return '-';
@@ -86,16 +112,23 @@ const formatAppointmentSlot = (appointment) => {
 
 const formatVnd = (value) => `${Number(value || 0).toLocaleString('vi-VN')} VNĐ`;
 
+const parseServiceNames = (serviceName = '') =>
+  String(serviceName || '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean);
+
 const getCancelDialogConfig = (dialog) => {
   if (!dialog?.appointment) {
     return null;
   }
 
-  switch (dialog.type) {
+  switch (dialog?.type) {
     case 'cancel_appointment':
       return {
-        title: 'Xác nhận hủy lịch',
-        message: 'Bạn có chắc muốn hủy lịch hẹn này vì không thể tiếp nhận lịch không?',
+        type: 'cancel_appointment',
+        title: 'Hủy lịch hẹn',
+        message: 'Bạn đang chuẩn bị hủy lịch hẹn này.',
         confirmLabel: 'Xác nhận hủy',
         cancelLabel: 'Không',
         tone: 'danger'
@@ -131,8 +164,8 @@ function ManageAppointments() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [processingId, setProcessingId] = useState(null);
-  const [processingPaymentId, setProcessingPaymentId] = useState(null);
   const [cancelDialog, setCancelDialog] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     fetchAppointments();
@@ -201,18 +234,6 @@ function ManageAppointments() {
     ],
     [stats]
   );
-
-  const handleStatusChange = async (id, newStatus) => {
-    try {
-      setProcessingId(id);
-      await bookingService.updateBookingStatus(id, newStatus);
-      await fetchAppointments();
-    } catch (err) {
-      window.alert(err.response?.data?.message || 'Cập nhật trạng thái thất bại.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleAcceptAppointment = async (id) => {
     if (!window.confirm('Xác nhận bạn sẽ nhận và thực hiện lịch hẹn này?')) {
@@ -283,6 +304,7 @@ function ManageAppointments() {
 
   const openCancelDialog = (type, appointment) => {
     setCancelDialog({ type, appointment });
+    setCancelReason('');
   };
 
   const closeCancelDialog = () => {
@@ -296,7 +318,7 @@ function ManageAppointments() {
   const executeCancelAppointment = async (id) => {
     try {
       setProcessingId(id);
-      await bookingService.updateBookingStatus(id, 'cancelled');
+      await bookingService.updateBookingStatus(id, 'cancelled', cancelReason.trim());
       await fetchAppointments();
       return true;
     } catch (err) {
@@ -352,22 +374,6 @@ function ManageAppointments() {
 
     if (success) {
       setCancelDialog(null);
-    }
-  };
-
-  const handleConfirmTransferPayment = async (paymentId) => {
-    if (!window.confirm('Xác nhận giao dịch VietQR này đã được chuyển khoản và cần đánh dấu đã thanh toán?')) {
-      return;
-    }
-
-    try {
-      setProcessingPaymentId(paymentId);
-      await paymentService.confirmTransferPayment(paymentId);
-      await fetchAppointments();
-    } catch (err) {
-      window.alert(err.response?.data?.message || 'Không thể xác nhận thanh toán VietQR.');
-    } finally {
-      setProcessingPaymentId(null);
     }
   };
 
@@ -450,7 +456,7 @@ function ManageAppointments() {
                     { key: 'appointment_time', header: 'Giờ hẹn', width: 10 },
                     { key: 'status', header: 'Trạng thái', width: 16, transform: (v, row) => getDisplayStatus(row) },
                     { key: 'total_amount', header: 'Tổng tiền (VNĐ)', width: 18, transform: (v) => Number(v || 0) },
-                    { key: 'payment_method', header: 'Phương thức TT', width: 16, transform: (v) => v ? String(v).toUpperCase() : 'Chưa chọn' },
+                    { key: 'payment_method', header: 'Phương thức TT', width: 16, transform: (v) => formatPaymentMethodLabel(v) },
                     { key: 'payment_status', header: 'TT thanh toán', width: 16, transform: (v, row) => getPaymentLabel(row) },
                     { key: 'staff_rating', header: 'Đánh giá NV', width: 12, transform: (v) => { const n = Number(v); return n >= 1 && n <= 5 ? `${n}/5` : ''; } },
                     { key: 'notes', header: 'Ghi chú', width: 30 }
@@ -490,7 +496,6 @@ function ManageAppointments() {
                 <th>Lịch hẹn</th>
                 <th>Trạng thái</th>
                 <th>Thanh toán</th>
-                <th>Hoa hồng NV</th>
                 <th>Đánh giá NV</th>
                 <th>Hành động</th>
               </tr>
@@ -498,7 +503,7 @@ function ManageAppointments() {
             <tbody>
               {filteredAppointments.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="empty-cell">
+                  <td colSpan="9" className="empty-cell">
                     Không có lịch hẹn phù hợp với bộ lọc hiện tại.
                   </td>
                 </tr>
@@ -512,10 +517,12 @@ function ManageAppointments() {
                   : awaitingStaffConfirmation
                     ? 'has-pending-confirmation'
                     : '';
-                const disableStatusSelect =
-                  processingId === appointment.id ||
-                  requestPending ||
-                  (isStaffView && !isCashierView && awaitingStaffConfirmation);
+                const serviceNames = parseServiceNames(appointment.service_name);
+                const serviceCount = Number(appointment.service_count) || serviceNames.length;
+                const serviceCountLabel =
+                  serviceCount > 1 ? `${serviceCount} dịch vụ` : serviceCount === 1 ? '1 dịch vụ' : 'Chưa có';
+                const secondaryServiceNames = serviceNames.slice(1, 3);
+                const hiddenServiceCount = Math.max(serviceCount - 1 - secondaryServiceNames.length, 0);
 
                 return (
                   <tr key={appointment.id} className={rowClass}>
@@ -526,9 +533,27 @@ function ManageAppointments() {
                         <small>{appointment.customer_email || '-'}</small>
                       </div>
                     </td>
-                    <td>
-                      <div className="cell-stack compact">
-                        <strong>{appointment.service_name}</strong>
+                    <td className="appointment-service-cell">
+                      <div
+                        className="appointment-service-summary"
+                        title={appointment.service_name || 'Chưa có dịch vụ'}
+                        aria-label={appointment.service_name || 'Chưa có dịch vụ'}
+                      >
+                        <strong className="appointment-service-name">
+                          {serviceNames[0] || appointment.service_name || '-'}
+                        </strong>
+                        <div className="appointment-service-tags">
+                          <span>{serviceCountLabel}</span>
+                          <span>{formatVnd(appointment.total_amount || appointment.service_price)}</span>
+                        </div>
+                        {(secondaryServiceNames.length > 0 || hiddenServiceCount > 0) && (
+                          <small className="appointment-service-more">
+                            {secondaryServiceNames.join(', ')}
+                            {hiddenServiceCount > 0
+                              ? `${secondaryServiceNames.length > 0 ? ' ' : ''}+${hiddenServiceCount} dịch vụ`
+                              : ''}
+                          </small>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -560,44 +585,14 @@ function ManageAppointments() {
                                 : 'Lịch này đang chờ nhân viên phụ trách xác nhận nhận lịch.'}
                           </small>
                         )}
-                        <select
-                          value={appointment.status}
-                          onChange={(event) => handleStatusChange(appointment.id, event.target.value)}
-                          className="status-select"
-                          disabled={disableStatusSelect}
-                        >
-                          <option value="pending">Chờ nhân viên xác nhận</option>
-                          <option value="confirmed">Đã xác nhận làm</option>
-                          <option value="completed">Hoàn thành</option>
-                          <option value="cancelled">Đã hủy</option>
-                        </select>
                       </div>
                     </td>
                     <td>
                       <div className="cell-stack compact payment-stack">
-                        <strong>{appointment.payment_method ? String(appointment.payment_method).toUpperCase() : 'CHƯA CHỌN'}</strong>
+                        <strong>{formatPaymentMethodLabel(appointment.payment_method)}</strong>
                         <small>{getPaymentLabel(appointment)}</small>
                         <small>{appointment.payment_reference || 'Chưa có mã đối soát'}</small>
-                        {appointment.payment_method === 'vietqr' &&
-                          appointment.payment_status !== 'paid' &&
-                          appointment.payment_id && (
-                            <button
-                              type="button"
-                              className="action-btn btn-confirm-payment"
-                              disabled={processingPaymentId === appointment.payment_id}
-                              onClick={() => handleConfirmTransferPayment(appointment.payment_id)}
-                            >
-                              {processingPaymentId === appointment.payment_id ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
-                            </button>
-                          )}
                       </div>
-                    </td>
-                    <td>
-                      {appointment.staff_id ? (
-                        <span className="rating-chip">{formatVnd(Number(appointment.total_amount || 0) * 0.1)}</span>
-                      ) : (
-                        <span className="rating-chip">0 VNĐ</span>
-                      )}
                     </td>
                     <td>
                       <span className="rating-chip">{formatRating(appointment.staff_rating)}</span>
@@ -684,7 +679,18 @@ function ManageAppointments() {
                   <strong>{formatAppointmentSlot(cancelDialog.appointment)}</strong>
                 </div>
               </div>
-              <div className="appointments-modal-actions">
+                {cancelDialogConfig.type === 'cancel_appointment' && (
+                  <div className="appointments-modal-detail" style={{ flexDirection: 'column', alignItems: 'flex-start', marginTop: '15px' }}>
+                    <label style={{ marginBottom: '8px', fontWeight: 'bold' }}>Lý do hủy (bắt buộc):</label>
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="Nhập lý do hủy lịch..."
+                      style={{ width: '100%', padding: '8px', minHeight: '80px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    />
+                  </div>
+                )}
+              <div className="appointments-modal-actions" style={{ marginTop: '20px' }}>
                 <button
                   type="button"
                   className={`appointments-modal-submit ${
@@ -693,7 +699,7 @@ function ManageAppointments() {
                       : 'appointments-modal-submit-neutral'
                   }`}
                   onClick={handleConfirmCancelDialog}
-                  disabled={isCancelDialogProcessing}
+                  disabled={isCancelDialogProcessing || (cancelDialogConfig.type === 'cancel_appointment' && !cancelReason.trim())}
                 >
                   {isCancelDialogProcessing ? 'Đang xử lý...' : cancelDialogConfig.confirmLabel}
                 </button>

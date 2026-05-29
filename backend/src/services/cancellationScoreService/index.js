@@ -2,7 +2,7 @@ const db = require('../../config/db');
 
 /**
  * Cancellation Score Service — Chống "Boom" lịch
- * Scoring dựa trên: lịch sử hủy, thời gian đặt, hạng khách, ngày trong tuần, no-show
+ * Scoring dựa trên: lịch sử hủy, thời gian đặt, phân cụm khách hàng, ngày trong tuần, no-show
  */
 
 const query = (sql, params = []) =>
@@ -56,7 +56,7 @@ const getCustomerHistory = async (customerId) => {
  * Weights:
  * - Lịch sử hủy: 40%
  * - Thời gian đặt (sát giờ vs xa giờ): 20%
- * - Hạng khách hàng (segment): 20%
+ * - Phân cụm khách hàng (cluster): 20%
  * - Ngày trong tuần: 10%
  * - No-show history: 10%
  */
@@ -84,7 +84,7 @@ const calculateScore = async (customerId, appointmentDate, appointmentTime) => {
     else leadTimeScore = 10;
   }
 
-  // 3. Segment Score (20%) — Khách VIP thấp rủi ro, khách mới cao rủi ro
+  // 3. Cluster Score (20%) — Nhóm phân cụm khách hàng ảnh hưởng rủi ro
   const segmentScores = {
     'Champions': 5,
     'Loyal Customers': 10,

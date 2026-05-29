@@ -12,6 +12,8 @@ router.get('/:id/busy-slots', verifyToken, validateStaffId, staffController.getB
 // Admin staff management (specific paths before generic /:id)
 router.get('/roles', verifyToken, verifyAdmin, staffController.getAllStaffRoles);
 router.post('/roles', verifyToken, verifyAdmin, staffController.createStaffRole);
+router.get('/me/weekly-availability', verifyToken, staffController.getMyWeeklyAvailability);
+router.put('/me/weekly-availability', verifyToken, staffController.replaceMyWeeklyAvailability);
 router.get(
   '/:id/weekly-availability',
   verifyToken,
