@@ -1,0 +1,162 @@
+const cron = require('node-cron');
+const clusteringService = require('../services/clusteringService');
+const db = require('../config/db');
+
+const query = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+
+const createSystemVoucher = async ({
+  code,
+  discountPercent,
+  minOrderValue,
+  maxDiscountAmount,
+  customerType,
+  maxUsageGlobal,
+  description,
+  validDays
+}) => {
+  const existing = await query('SELECT id FROM vouchers WHERE code = ?', [code]);
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + validDays);
+
+  const result = await query(
+    `INSERT INTO vouchers (
+       code,
+       voucher_type,
+       discount_percent,
+       min_order_value,
+       max_discount_amount,
+       customer_type,
+       max_usage_global,
+       status,
+       description,
+       expiry_date
+     )
+     VALUES (?, 'percentage', ?, ?, ?, ?, ?, 'active', ?, ?)`,
+    [
+      code,
+      discountPercent,
+      minOrderValue,
+      maxDiscountAmount,
+      customerType,
+      maxUsageGlobal,
+      description,
+      expiryDate
+    ]
+  );
+
+  return result.insertId;
+};
+
+const assignSystemVoucher = async (voucherId, customerId, reason) => {
+  await query(
+    `INSERT IGNORE INTO voucher_assignments (
+       voucher_id,
+       customer_id,
+       max_usage_customer,
+       source,
+       reason
+     )
+     VALUES (?, ?, 1, 'system', ?)`,
+    [voucherId, customerId, reason]
+  );
+};
+
+const createReengagementVouchers = async () => {
+  try {
+    const atRiskCustomers = await clusteringService.getAtRiskCustomers();
+    if (atRiskCustomers.length === 0) return;
+
+    console.log(`[Clustering Job] Creating re-engagement vouchers for ${atRiskCustomers.length} At Risk customers`);
+
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const voucherId = await createSystemVoucher({
+      code: `COMEBACK${today}`,
+      discountPercent: 25,
+      minOrderValue: 100000,
+      maxDiscountAmount: 200000,
+      customerType: 'both',
+      maxUsageGlobal: atRiskCustomers.length,
+      description: 'Voucher chao mung tro lai - Giam 25%',
+      validDays: 7
+    });
+
+    for (const customer of atRiskCustomers) {
+      try {
+        await assignSystemVoucher(voucherId, customer.id, 'At Risk re-engagement');
+      } catch (assignErr) {
+        // Ignore duplicate assignment errors.
+      }
+    }
+
+    console.log(`[Clustering Job] Re-engagement voucher assigned to ${atRiskCustomers.length} customers`);
+  } catch (err) {
+    console.error('[Clustering Job] Error creating re-engagement vouchers:', err.message);
+  }
+};
+
+const createVipVouchers = async () => {
+  try {
+    const champions = await clusteringService.getChampionCustomers();
+    if (champions.length === 0) return;
+
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const voucherId = await createSystemVoucher({
+      code: `VIP${today}`,
+      discountPercent: 15,
+      minOrderValue: 0,
+      maxDiscountAmount: 300000,
+      customerType: 'vip',
+      maxUsageGlobal: champions.length,
+      description: 'Voucher VIP danh rieng cho khach hang than thiet - Giam 15%',
+      validDays: 14
+    });
+
+    for (const customer of champions) {
+      try {
+        await assignSystemVoucher(voucherId, customer.id, 'Champion/VIP reward');
+      } catch (assignErr) {
+        // Ignore duplicate assignment errors.
+      }
+    }
+
+    console.log(`[Clustering Job] VIP voucher assigned to ${champions.length} Champions`);
+  } catch (err) {
+    console.error('[Clustering Job] Error creating VIP vouchers:', err.message);
+  }
+};
+
+const runClusteringJob = async () => {
+  try {
+    console.log(`[Clustering Job] Starting at ${new Date().toLocaleString('vi-VN')}`);
+
+    const result = await clusteringService.runFullAnalysis();
+    console.log(`[Clustering Job] Analysis complete: ${result.total} customers`);
+
+    await createReengagementVouchers();
+    await createVipVouchers();
+
+    console.log('[Clustering Job] Complete');
+  } catch (err) {
+    console.error('[Clustering Job] Error:', err.message);
+  }
+};
+
+const startClusteringJob = () => {
+  cron.schedule('0 3 * * *', () => {
+    runClusteringJob();
+  });
+
+  console.log('[Clustering Job] Customer clustering job scheduled (daily at 3:00 AM)');
+};
+
+module.exports = { startClusteringJob, runClusteringJob };

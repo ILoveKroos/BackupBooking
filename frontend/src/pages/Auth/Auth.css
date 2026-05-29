@@ -1,0 +1,313 @@
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 20px;
+}
+
+.auth-card {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-card h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+  font-size: 28px;
+}
+
+.auth-card form {
+  margin-bottom: 20px;
+}
+
+.auth-card .form-group {
+  margin-bottom: 20px;
+}
+
+.auth-card .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.auth-card .form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.auth-card .form-group input:focus {
+  outline: none;
+  border-color: #e91e63;
+  box-shadow: 0 0 5px rgba(233, 30, 99, 0.3);
+}
+
+.auth-card .password-input-wrap {
+  position: relative;
+}
+
+.auth-card .password-input-wrap input {
+  padding-right: 46px;
+}
+
+.auth-card .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+}
+
+.auth-card .password-toggle:hover {
+  color: #e91e63;
+}
+
+.auth-card .password-toggle:focus-visible {
+  outline: 2px solid #e91e63;
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+.auth-card .password-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-card .password-requirements {
+  margin-top: 8px;
+  color: #666;
+  font-size: 13px;
+}
+
+.auth-card .password-requirements-title {
+  margin: 4px 0;
+  font-weight: 500;
+}
+
+.auth-card .password-check-list {
+  display: grid;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.auth-card .password-check-item {
+  color: #999;
+}
+
+.auth-card .password-check-item.is-valid {
+  color: #4caf50;
+}
+
+.auth-card .field-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.auth-card .field-hint.error {
+  color: #c62828;
+}
+
+.auth-card .field-hint.success {
+  color: #2e7d32;
+}
+
+.auth-card .btn-primary {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.auth-card .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-link {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.auth-link a {
+  color: #e91e63;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
+}
+
+.auth-card .auth-link-inline {
+  margin-top: -8px;
+  margin-bottom: 16px;
+}
+
+.social-login-block {
+  margin: 8px 0 20px;
+}
+
+.social-login-divider {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  margin: 6px 0 12px;
+}
+
+.google-login-block {
+  margin-bottom: 10px;
+}
+
+.google-login-button {
+  display: flex;
+  justify-content: center;
+  min-height: 42px;
+}
+
+.zalo-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  min-height: 42px;
+  background: #0068FF;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.zalo-login-button:hover {
+  background: #0054cc;
+  box-shadow: 0 2px 8px rgba(0, 104, 255, 0.3);
+}
+
+.zalo-login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zalo-login-button .zalo-icon {
+  flex-shrink: 0;
+}
+
+.zalo-callback-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #eee;
+  border-top-color: #0068FF;
+  border-radius: 50%;
+  margin: 20px auto;
+  animation: zalo-spin 0.7s linear infinite;
+}
+
+@keyframes zalo-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 20px;
+  }
+
+  .auth-card h1 {
+    font-size: 24px;
+  }
+}
+
+/* ─── Rate-limit lockout alert ─── */
+.alert-lockout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  border: 1.5px solid #fca5a5 !important;
+  color: #991b1b !important;
+  padding: 16px !important;
+  animation: lockout-appear 0.35s ease;
+}
+
+.lockout-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #dc2626;
+}
+
+.lockout-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.lockout-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.countdown-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #b91c1c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.countdown-timer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #ffffff;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 2px 10px;
+  min-width: 64px;
+  letter-spacing: 2px;
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes lockout-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}

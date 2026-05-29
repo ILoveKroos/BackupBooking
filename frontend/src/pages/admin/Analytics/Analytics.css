@@ -1,0 +1,167 @@
+.analytics {
+  width: 100%;
+}
+
+.analytics h1 {
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #1e293b;
+}
+
+.analytics-card {
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  margin-bottom: 16px;
+}
+
+.analytics-card h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #1e293b;
+  font-size: 16px;
+}
+
+.cancellation-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.stat-item {
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-item .label {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.stat-item .value {
+  color: #0f766e;
+  font-weight: bold;
+  font-size: 20px;
+}
+
+.status-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 50px;
+  gap: 12px;
+  align-items: center;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #64748b;
+  text-transform: capitalize;
+  font-size: 13px;
+}
+
+.progress-bar {
+  background: #f1f5f9;
+  border-radius: 6px;
+  height: 16px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  height: 100%;
+  transition: width 0.3s;
+  border-radius: 6px;
+}
+
+.status-count {
+  text-align: right;
+  font-weight: bold;
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.customer-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.customer-table table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.customer-table thead {
+  background: #f8fafc;
+}
+
+.customer-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+}
+
+.customer-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+}
+
+.customer-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.customer-table .center {
+  text-align: center;
+}
+
+.customer-table .right {
+  text-align: right;
+  color: #0f766e;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .analytics h1 {
+    font-size: 20px;
+  }
+
+  .customer-table table {
+    min-width: 680px;
+    font-size: 12px;
+  }
+
+  .customer-table th,
+  .customer-table td {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .status-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .status-count,
+  .right {
+    text-align: left;
+  }
+}

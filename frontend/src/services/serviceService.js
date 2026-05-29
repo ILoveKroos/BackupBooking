@@ -1,41 +1,28 @@
 import api from './api';
 
 const serviceService = {
-  // Lấy tất cả dịch vụ
-  getAllServices: () => {
-    return api.get('/services');
-  },
+  getAllServices: () => api.get('/services'),
 
-  // Lấy dịch vụ theo ID
-  getServiceById: (id) => {
-    return api.get(`/services/${id}`);
-  },
+  getTrendingServices: () => api.get('/services/trending'),
 
-  // Tạo dịch vụ (admin)
-  createService: (name, description, price, duration) => {
-    return api.post('/services', {
-      name,
-      description,
-      price,
-      duration
-    });
-  },
+  getAdminServices: () => api.get('/services/admin/all'),
 
-  // Cập nhật dịch vụ (admin)
-  updateService: (id, name, description, price, duration, status) => {
-    return api.put(`/services/${id}`, {
-      name,
-      description,
-      price,
-      duration,
-      status
-    });
-  },
+  getServiceById: (id) => api.get(`/services/${id}`),
 
-  // Xóa dịch vụ (admin)
-  deleteService: (id) => {
-    return api.delete(`/services/${id}`);
-  }
+  getRecommendations: (serviceId, limit = 4) =>
+    api.get('/services/recommendations', { params: { serviceId, limit } }),
+
+  createService: (payload) => api.post('/services', payload),
+
+  updateService: (id, payload) => api.put(`/services/${id}`, payload),
+
+  updateServicePrice: (id, price) => api.put(`/services/${id}/price`, { price }),
+
+  deleteService: (id) => api.delete(`/services/${id}`),
+
+  createCategory: (categoryData) => api.post('/services/categories', categoryData),
+  
+  getAllCategories: () => api.get('/services/categories')
 };
 
 export default serviceService;

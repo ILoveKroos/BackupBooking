@@ -1,0 +1,220 @@
+.role-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 130;
+  width: 244px;
+  display: none;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 18px 14px;
+  border-right: 1px solid rgba(217, 226, 239, 0.82);
+  background:
+    radial-gradient(circle at 100% 12%, rgba(15, 118, 110, 0.1) 0%, rgba(15, 118, 110, 0) 38%),
+    linear-gradient(180deg, rgba(250, 253, 250, 0.98) 0%, rgba(241, 248, 245, 0.98) 100%);
+  box-shadow: 12px 0 34px rgba(18, 34, 59, 0.08);
+}
+
+.role-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.role-sidebar__logo-wrap {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #dfeee8 0%, #c7ddd3 100%);
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.14);
+}
+
+.role-sidebar__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+.role-sidebar__brand-copy,
+.role-sidebar__user-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.role-sidebar__brand-copy strong {
+  color: #12223b;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.role-sidebar__brand-copy small,
+.role-sidebar__user-copy small {
+  overflow: hidden;
+  color: #66758c;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-sidebar__nav {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 118, 110, 0.26) transparent;
+}
+
+.role-sidebar__link {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  color: #66758c;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.role-sidebar__link:hover {
+  color: #0f766e;
+  background: rgba(255, 255, 255, 0.72);
+  transform: translateX(2px);
+}
+
+.role-sidebar__link--active {
+  color: #0f766e;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 24px rgba(18, 34, 59, 0.08);
+}
+
+.role-sidebar__link span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-sidebar__icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.role-sidebar__account {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(217, 226, 239, 0.86);
+}
+
+.role-sidebar__user {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  text-decoration: none;
+}
+
+.role-sidebar__avatar,
+.role-sidebar__avatar-placeholder {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.role-sidebar__avatar {
+  object-fit: cover;
+}
+
+.role-sidebar__avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.role-sidebar__user-copy strong {
+  overflow: hidden;
+  color: #12223b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-sidebar__logout {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 245, 245, 0.86);
+  color: #b91c1c;
+  box-shadow: none;
+}
+
+.role-sidebar__logout:hover {
+  background: #ffe8eb;
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+.role-sidebar__logout span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (min-width: 981px) {
+  .role-sidebar {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-sidebar__link,
+  .role-sidebar__logout {
+    transition: none;
+  }
+
+  .role-sidebar__link:hover {
+    transform: none;
+  }
+}

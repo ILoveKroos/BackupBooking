@@ -5,29 +5,85 @@ const staffService = {
     return api.get('/staff');
   },
 
-  getAvailableStaff: (date, time, serviceId) => {
+  getBookableStaff: () => {
+    return api.get('/staff/bookable');
+  },
+
+  getAvailableStaff: (date, time, serviceIds = []) => {
     const params = new URLSearchParams();
     params.set('date', date);
     params.set('time', time);
-    if (serviceId) {
-      params.set('serviceId', serviceId);
+    const normalizedServiceIds = Array.isArray(serviceIds)
+      ? serviceIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
+
+    if (normalizedServiceIds.length > 0) {
+      params.set('serviceId', String(normalizedServiceIds[0]));
+      params.set('serviceIds', normalizedServiceIds.join(','));
     }
 
     return api.get(`/staff/available?${params.toString()}`);
   },
 
-  createStaff: (name, email, password, phone, is_active = true) => {
+  getBusyTimeSlots: (staffId, date) => {
+    const params = new URLSearchParams();
+    params.set('date', date);
+    return api.get(`/staff/${staffId}/busy-slots?${params.toString()}`);
+  },
+
+  createStaff: (name, email, password, phone, staff_role_id, is_active = true) => {
     return api.post('/staff', {
       name,
       email,
       password,
       phone,
+      staff_role_id,
       is_active
     });
   },
 
+  getAllStaffRoles: () => {
+    return api.get('/staff/roles');
+  },
+
+  createStaffRole: (role_name) => {
+    return api.post('/staff/roles', { role_name });
+  },
+
   updateStaff: (id, payload) => {
     return api.put(`/staff/${id}`, payload);
+  },
+
+  getStaffWeeklyAvailability: (id) => {
+    return api.get(`/staff/${id}/weekly-availability`);
+  },
+
+  replaceStaffWeeklyAvailability: (id, slots) => {
+    return api.put(`/staff/${id}/weekly-availability`, { slots });
+  },
+
+  getMyWeeklyAvailability: () => {
+    return api.get('/staff/me/weekly-availability');
+  },
+
+  replaceMyWeeklyAvailability: (slots) => {
+    return api.put('/staff/me/weekly-availability', { slots });
+  },
+
+  requestLeave: (leaveData) => {
+    return api.post('/staff/leave-request', leaveData);
+  },
+
+  getMyLeaveRequests: () => {
+    return api.get('/staff/my-leave-requests');
+  },
+
+  getAllLeaveRequests: () => {
+    return api.get('/staff/leave-requests');
+  },
+
+  updateLeaveRequestStatus: (id, status) => {
+    return api.put(`/staff/leave-requests/${id}/status`, { status });
   }
 };
 

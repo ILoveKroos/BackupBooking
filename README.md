@@ -5,8 +5,8 @@
 - `frontend`: React
 - `ml-analysis`: phân tích dữ liệu khách hàng (RFM)
 
-**Phiên bản:** `1.0.0`  
-**Cập nhật lần cuối:** `2026-03-18`
+**Phiên bản:** `2.1.0`  
+**Cập nhật lần cuối:** `2026-04-10`
 
 ## Chức Năng Chính
 
