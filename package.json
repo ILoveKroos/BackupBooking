@@ -1,0 +1,12 @@
+{
+  "name": "booking-hosting",
+  "version": "8.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "vercel-build": "DISABLE_ESLINT_PLUGIN=true npm --prefix frontend run build"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
