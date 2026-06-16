@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { clearAuthSession, getAuthToken } from '../utils/authStorage';
 
-export const DEFAULT_API_ORIGIN = 'https://booking-backend-production.up.railway.app';
+export const DEFAULT_API_ORIGIN = 'https://bookingsalon.up.railway.app';
 const configuredApiUrl = (process.env.REACT_APP_API_URL || DEFAULT_API_ORIGIN).replace(/\/+$/, '');
 
 export const API_ORIGIN = configuredApiUrl.replace(/\/api\/?$/, '');
