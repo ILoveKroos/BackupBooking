@@ -477,10 +477,14 @@ class VoucherService {
   }
 
   async recordVoucherUsage(voucherId, assignmentId, customerId, appointmentId, discountApplied) {
-    await this.db.beginTransaction();
+    const connection = await this.db.getConnection();
+    let transactionStarted = false;
 
     try {
-      const [assignmentUpdate] = await this.db.query(
+      await connection.beginTransaction();
+      transactionStarted = true;
+
+      const [assignmentUpdate] = await connection.query(
         `
           UPDATE voucher_assignments
           SET
@@ -505,7 +509,7 @@ class VoucherService {
         throw error;
       }
 
-      await this.db.query(
+      await connection.query(
         `
           UPDATE vouchers
           SET current_usage = current_usage + 1
@@ -514,11 +518,19 @@ class VoucherService {
         [voucherId]
       );
 
-      await this.db.commit();
+      await connection.commit();
       return { success: true };
     } catch (error) {
-      await this.db.rollback();
+      if (transactionStarted) {
+        try {
+          await connection.rollback();
+        } catch (rollbackErr) {
+          console.error('[VoucherUsage] Rollback error:', rollbackErr.message);
+        }
+      }
       throw error;
+    } finally {
+      connection.release();
     }
   }
 
