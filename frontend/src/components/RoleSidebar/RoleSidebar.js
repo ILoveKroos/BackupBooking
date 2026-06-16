@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { API_ORIGIN } from '../../services/api';
 import './RoleSidebar.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 const normalizeRoleName = (value = '') =>
   String(value)
@@ -193,7 +192,7 @@ function RoleSidebar({ user, onLogout, presenceStatus = 'offline' }) {
         <NavLink to="/profile" className="role-sidebar__user">
           <span className="role-sidebar__avatar-wrap">
             {user.avatar ? (
-              <img src={`${API_URL}${user.avatar}`} alt={user.name} className="role-sidebar__avatar" />
+              <img src={`${API_ORIGIN}${user.avatar}`} alt={user.name} className="role-sidebar__avatar" />
             ) : (
               <span className="role-sidebar__avatar-placeholder">{userInitial}</span>
             )}

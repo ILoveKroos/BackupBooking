@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { clearAuthSession, getAuthToken } from '../utils/authStorage';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
+export const DEFAULT_API_ORIGIN = 'https://booking-backend-production.up.railway.app';
+const configuredApiUrl = (process.env.REACT_APP_API_URL || DEFAULT_API_ORIGIN).replace(/\/+$/, '');
+
+export const API_ORIGIN = configuredApiUrl.replace(/\/api\/?$/, '');
+export const API_BASE_URL = `${API_ORIGIN}/api`;
 export const AUTH_EXPIRED_EVENT = 'auth:expired';
 
 const PUBLIC_AUTH_PATHS = [

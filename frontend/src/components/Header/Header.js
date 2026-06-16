@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import HeaderNotifications from './HeaderNotifications';
+import { API_ORIGIN } from '../../services/api';
 import './Header.css';
 
 const HEADER_SCROLL_THRESHOLD = 24;
@@ -238,7 +239,7 @@ function Header({ user, onLogout, presenceStatus = 'offline' }) {
                     <span className="user-avatar-presence">
                       {user.avatar ? (
                         <img
-                          src={`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${user.avatar}`}
+                          src={`${API_ORIGIN}${user.avatar}`}
                           alt={user.name}
                           className="user-avatar-small"
                         />

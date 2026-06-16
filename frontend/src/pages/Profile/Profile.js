@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import authService from '../../services/authService';
+import { API_ORIGIN } from '../../services/api';
 import './Profile.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 const normalizeRoleName = (value = '') =>
   String(value)
@@ -104,7 +103,7 @@ function Profile({ user, setUser }) {
       setPhone(user.phone || '');
       setDateOfBirth(normalizeDateInputValue(user.date_of_birth));
       setGender(user.gender || '');
-      setAvatarPreview(user.avatar ? `${API_URL}${user.avatar}` : null);
+      setAvatarPreview(user.avatar ? `${API_ORIGIN}${user.avatar}` : null);
       setIsEditing(false);
     }
   }, [user]);
@@ -161,12 +160,12 @@ function Profile({ user, setUser }) {
       const updatedUser = { ...user, avatar: newAvatar };
       authService.setUser(updatedUser);
       setUser(updatedUser);
-      setAvatarPreview(`${API_URL}${newAvatar}`);
+      setAvatarPreview(`${API_ORIGIN}${newAvatar}`);
       setSuccess('Cập nhật ảnh đại diện thành công!');
     } catch (err) {
       setError(err.response?.data?.message || 'Tải ảnh lên thất bại.');
       // Revert preview
-      setAvatarPreview(user?.avatar ? `${API_URL}${user.avatar}` : null);
+      setAvatarPreview(user?.avatar ? `${API_ORIGIN}${user.avatar}` : null);
     } finally {
       setUploadingAvatar(false);
     }
