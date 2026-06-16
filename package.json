@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "npm --prefix frontend run build",
-    "vercel-build": "DISABLE_ESLINT_PLUGIN=true npm --prefix frontend run build"
+    "vercel-build": "npm --prefix frontend run build && node scripts/prepare-vercel-output.js"
   },
   "engines": {
     "node": "20.x"
