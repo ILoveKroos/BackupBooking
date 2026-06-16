@@ -4,21 +4,41 @@ require("../loadEnv");
 
 const DEFAULT_LOCAL_DATABASE = "booking_system";
 
+const cleanEnvValue = (value) => {
+  if (typeof value === "undefined" || value === null) {
+    return undefined;
+  }
+
+  let cleaned = String(value).trim();
+  while (
+    cleaned.length >= 2 &&
+    ((cleaned.startsWith("\"") && cleaned.endsWith("\"")) ||
+      (cleaned.startsWith("'") && cleaned.endsWith("'")))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  return cleaned || undefined;
+};
+
+const envValue = (name) => cleanEnvValue(process.env[name]);
+const firstEnvValue = (...names) => names.map(envValue).find(Boolean);
+
 const parseDatabaseUrl = (value) => {
-  const raw = String(value || "").trim();
+  const raw = cleanEnvValue(value);
   if (!raw) return {};
 
   try {
     const url = new URL(raw);
-    const database = decodeURIComponent((url.pathname || "").replace(/^\/+/, ""));
+    const database = cleanEnvValue(decodeURIComponent((url.pathname || "").replace(/^\/+/, "")));
 
     return {
       host: url.hostname || undefined,
       port: url.port || undefined,
-      user: url.username ? decodeURIComponent(url.username) : undefined,
-      password: url.password ? decodeURIComponent(url.password) : undefined,
+      user: url.username ? cleanEnvValue(decodeURIComponent(url.username)) : undefined,
+      password: url.password ? cleanEnvValue(decodeURIComponent(url.password)) : undefined,
       database: database || undefined,
-      ssl: url.searchParams.get("ssl") || url.searchParams.get("sslmode") || undefined
+      ssl: cleanEnvValue(url.searchParams.get("ssl") || url.searchParams.get("sslmode"))
     };
   } catch (err) {
     console.error("Invalid database URL format:", err.message);
@@ -32,59 +52,62 @@ const parsePositiveInt = (value, fallback) => {
 };
 
 const isLocalHost = (value) => {
-  const host = String(value || "").trim().toLowerCase();
+  const host = String(cleanEnvValue(value) || "").toLowerCase();
   return ["localhost", "127.0.0.1", "::1"].includes(host);
 };
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  process.env.MYSQL_URL ||
-  process.env.MYSQL_PRIVATE_URL ||
-  process.env.MYSQL_PUBLIC_URL ||
-  process.env.DATABASE_PRIVATE_URL ||
-  process.env.DATABASE_PUBLIC_URL ||
-  process.env.RAILWAY_DATABASE_URL;
+const databaseUrl = firstEnvValue(
+  "DATABASE_URL",
+  "MYSQL_URL",
+  "MYSQL_PRIVATE_URL",
+  "MYSQL_PUBLIC_URL",
+  "DATABASE_PRIVATE_URL",
+  "DATABASE_PUBLIC_URL",
+  "RAILWAY_DATABASE_URL"
+);
 
 const urlConfig = parseDatabaseUrl(databaseUrl);
-const railwayHost = process.env.MYSQLHOST || process.env.MYSQL_HOST;
-const shouldPreferRailwayVars = railwayHost && (!process.env.DB_HOST || isLocalHost(process.env.DB_HOST));
+const railwayHost = firstEnvValue("MYSQLHOST", "MYSQL_HOST");
+const dbHostEnv = envValue("DB_HOST");
+const dbPortEnv = envValue("DB_PORT");
+const mysqlPortEnv = firstEnvValue("MYSQLPORT", "MYSQL_PORT");
+const dbUserEnv = envValue("DB_USER");
+const mysqlUserEnv = firstEnvValue("MYSQLUSER", "MYSQL_USER");
+const dbPasswordEnv = envValue("DB_PASSWORD");
+const mysqlPasswordEnv = firstEnvValue("MYSQLPASSWORD", "MYSQL_PASSWORD");
+const shouldPreferRailwayVars = railwayHost && (!dbHostEnv || isLocalHost(dbHostEnv));
 
 const configuredDbName =
   urlConfig.database ||
-  process.env.MYSQLDATABASE ||
-  process.env.MYSQL_DATABASE ||
-  process.env.DB_NAME;
+  firstEnvValue("MYSQLDATABASE", "MYSQL_DATABASE", "DB_NAME");
 const dbName = configuredDbName || DEFAULT_LOCAL_DATABASE;
 const dbHost =
   urlConfig.host ||
-  (shouldPreferRailwayVars ? railwayHost : process.env.DB_HOST) ||
+  (shouldPreferRailwayVars ? railwayHost : dbHostEnv) ||
   railwayHost ||
   "127.0.0.1";
 const dbPort = parsePositiveInt(
   urlConfig.port ||
-    (shouldPreferRailwayVars ? process.env.MYSQLPORT || process.env.MYSQL_PORT : process.env.DB_PORT) ||
-    process.env.DB_PORT ||
-    process.env.MYSQLPORT ||
-    process.env.MYSQL_PORT,
+    (shouldPreferRailwayVars ? mysqlPortEnv : dbPortEnv) ||
+    dbPortEnv ||
+    mysqlPortEnv,
   3306
 );
 const dbUser =
   urlConfig.user ||
-  (shouldPreferRailwayVars ? process.env.MYSQLUSER || process.env.MYSQL_USER : process.env.DB_USER) ||
-  process.env.DB_USER ||
-  process.env.MYSQLUSER ||
-  process.env.MYSQL_USER ||
+  (shouldPreferRailwayVars ? mysqlUserEnv : dbUserEnv) ||
+  dbUserEnv ||
+  mysqlUserEnv ||
   "root";
 const dbPassword =
   urlConfig.password ||
-  (shouldPreferRailwayVars ? process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD : process.env.DB_PASSWORD) ||
-  process.env.DB_PASSWORD ||
-  process.env.MYSQLPASSWORD ||
-  process.env.MYSQL_PASSWORD ||
+  (shouldPreferRailwayVars ? mysqlPasswordEnv : dbPasswordEnv) ||
+  dbPasswordEnv ||
+  mysqlPasswordEnv ||
   "";
-const dbConnectTimeout = parsePositiveInt(process.env.DB_CONNECT_TIMEOUT_MS, 10000);
-const dbConnectionLimit = parsePositiveInt(process.env.DB_CONNECTION_LIMIT, 15);
-const dbSslMode = String(process.env.DB_SSL || urlConfig.ssl || "").trim().toLowerCase();
+const dbConnectTimeout = parsePositiveInt(envValue("DB_CONNECT_TIMEOUT_MS"), 10000);
+const dbConnectionLimit = parsePositiveInt(envValue("DB_CONNECTION_LIMIT"), 15);
+const dbSslMode = String(envValue("DB_SSL") || urlConfig.ssl || "").trim().toLowerCase();
 const isRailwayRuntime = Boolean(
   process.env.RAILWAY_ENVIRONMENT ||
     process.env.RAILWAY_PROJECT_ID ||
@@ -124,7 +147,7 @@ const getConnectionContext = () => ({
   configSource: urlConfig.host ? "database_url" : (shouldPreferRailwayVars ? "railway_mysql_vars" : "db_vars_or_defaults"),
   hasDatabaseUrl: Boolean(databaseUrl),
   hasMysqlHost: Boolean(railwayHost),
-  hasDbHost: Boolean(process.env.DB_HOST),
+  hasDbHost: Boolean(dbHostEnv),
   hasConfiguredDatabase: Boolean(configuredDbName)
 });
 
