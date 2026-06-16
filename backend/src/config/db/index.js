@@ -75,7 +75,7 @@ const dbUserEnv = envValue("DB_USER");
 const mysqlUserEnv = firstEnvValue("MYSQLUSER", "MYSQL_USER");
 const dbPasswordEnv = envValue("DB_PASSWORD");
 const mysqlPasswordEnv = firstEnvValue("MYSQLPASSWORD", "MYSQL_PASSWORD");
-const shouldPreferRailwayVars = railwayHost && (!dbHostEnv || isLocalHost(dbHostEnv));
+const shouldPreferRailwayVars = Boolean(railwayHost);
 
 const configuredDbName =
   urlConfig.database ||
@@ -83,8 +83,8 @@ const configuredDbName =
 const dbName = configuredDbName || DEFAULT_LOCAL_DATABASE;
 const dbHost =
   urlConfig.host ||
-  (shouldPreferRailwayVars ? railwayHost : dbHostEnv) ||
   railwayHost ||
+  (dbHostEnv && !isLocalHost(dbHostEnv) ? dbHostEnv : undefined) ||
   "127.0.0.1";
 const dbPort = parsePositiveInt(
   urlConfig.port ||
