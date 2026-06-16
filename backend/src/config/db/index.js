@@ -1,11 +1,70 @@
 const mysql = require("mysql2");
 require("../loadEnv");
 
-const dbName = process.env.DB_NAME;
-const dbHost = process.env.DB_HOST || "127.0.0.1";
-const dbPort = Number.parseInt(process.env.DB_PORT || "3306", 10);
-const dbUser = process.env.DB_USER || "root";
+const parseDatabaseUrl = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return {};
+
+  try {
+    const url = new URL(raw);
+    return {
+      host: url.hostname,
+      port: url.port,
+      user: decodeURIComponent(url.username || ""),
+      password: decodeURIComponent(url.password || ""),
+      database: decodeURIComponent((url.pathname || "").replace(/^\/+/, "")),
+      ssl: url.searchParams.get("ssl") || url.searchParams.get("sslmode")
+    };
+  } catch (err) {
+    console.error("Invalid database URL format:", err.message);
+    return {};
+  }
+};
+
+const isLocalHost = (value) => ["localhost", "127.0.0.1", "::1"].includes(String(value || "").trim());
+const urlConfig = parseDatabaseUrl(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL);
+const railwayHost = process.env.MYSQLHOST || process.env.MYSQL_HOST;
+const shouldPreferRailwayVars = railwayHost && (!process.env.DB_HOST || isLocalHost(process.env.DB_HOST));
+
+const dbName = (
+  urlConfig.database ||
+  (shouldPreferRailwayVars ? process.env.MYSQLDATABASE : process.env.DB_NAME) ||
+  process.env.DB_NAME ||
+  process.env.MYSQLDATABASE
+);
+const dbHost = (
+  urlConfig.host ||
+  (shouldPreferRailwayVars ? railwayHost : process.env.DB_HOST) ||
+  railwayHost ||
+  "127.0.0.1"
+);
+const dbPort = Number.parseInt(
+  urlConfig.port ||
+    (shouldPreferRailwayVars ? process.env.MYSQLPORT || process.env.MYSQL_PORT : process.env.DB_PORT) ||
+    process.env.DB_PORT ||
+    process.env.MYSQLPORT ||
+    process.env.MYSQL_PORT ||
+    "3306",
+  10
+);
+const dbUser = (
+  urlConfig.user ||
+  (shouldPreferRailwayVars ? process.env.MYSQLUSER || process.env.MYSQL_USER : process.env.DB_USER) ||
+  process.env.DB_USER ||
+  process.env.MYSQLUSER ||
+  process.env.MYSQL_USER ||
+  "root"
+);
+const dbPassword = (
+  urlConfig.password ||
+  (shouldPreferRailwayVars ? process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD : process.env.DB_PASSWORD) ||
+  process.env.DB_PASSWORD ||
+  process.env.MYSQLPASSWORD ||
+  process.env.MYSQL_PASSWORD ||
+  ""
+);
 const dbConnectTimeout = Number.parseInt(process.env.DB_CONNECT_TIMEOUT_MS || "10000", 10);
+const dbSslMode = String(process.env.DB_SSL || urlConfig.ssl || "").trim().toLowerCase();
 
 const normalizedDbPort = Number.isInteger(dbPort) && dbPort > 0 ? dbPort : 3306;
 const normalizedConnectTimeout =
@@ -15,10 +74,14 @@ const connectionOptions = {
   host: dbHost,
   port: normalizedDbPort,
   user: dbUser,
-  password: process.env.DB_PASSWORD ?? "",
+  password: dbPassword,
   charset: "utf8mb4",
   connectTimeout: normalizedConnectTimeout
 };
+
+if (["1", "true", "required", "require"].includes(dbSslMode)) {
+  connectionOptions.ssl = { rejectUnauthorized: false };
+}
 
 const db = mysql.createConnection(connectionOptions);
 
