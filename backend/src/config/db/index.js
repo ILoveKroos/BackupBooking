@@ -157,9 +157,16 @@ const logConnectionDiagnostics = (err, phase) => {
   console.error("Database connection context:", context);
 
   if (err?.code === "ECONNREFUSED" && isLocalHost(connectionOptions.host)) {
-    console.error(
-      "MySQL is still configured as localhost. On Railway, add MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, and MYSQLDATABASE to the backend service."
-    );
+    if (isProductionRuntime) {
+      console.error(
+        "MySQL is still configured as localhost. On Railway, add MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, and MYSQLDATABASE to the backend service."
+      );
+    } else {
+      console.error(
+        `Local MySQL is not reachable at ${connectionOptions.host}:${connectionOptions.port}. ` +
+          "Start MySQL/MariaDB locally, or set MYSQLHOST/MYSQL_URL/DB_HOST to a reachable database."
+      );
+    }
   }
 
   if (err?.code === "ETIMEDOUT") {

@@ -33,6 +33,7 @@ CREATE TABLE users (
   rfm_updated_at TIMESTAMP NULL,
   date_of_birth DATE NULL,
   cancellation_count INT NOT NULL DEFAULT 0,
+  cancellation_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00,
   noshow_count INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_users_staff_role_id (staff_role_id),
@@ -176,7 +177,7 @@ CREATE TABLE vouchers (
 CREATE TABLE voucher_assignments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   voucher_id INT NOT NULL,
-  customer_id INT NOT NULL,
+  user_id INT NOT NULL,
   assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   max_usage_customer INT NOT NULL DEFAULT 1,
   usage_count INT NOT NULL DEFAULT 0,
@@ -194,16 +195,16 @@ CREATE TABLE voucher_assignments (
   total_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_voucher_customer (voucher_id, customer_id),
-  INDEX idx_voucher_assignments_customer (customer_id),
+  UNIQUE KEY uniq_voucher_user (voucher_id, user_id),
+  INDEX idx_voucher_assignments_user (user_id),
   INDEX idx_voucher_assignments_voucher (voucher_id),
   INDEX idx_voucher_assignments_status (status),
   INDEX idx_voucher_assignments_source (source),
   INDEX idx_voucher_assignments_shown_date (shown_date),
   CONSTRAINT fk_voucher_assignments_voucher
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_assignments_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_voucher_assignments_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_voucher_assignments_last_appointment
     FOREIGN KEY (last_appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -415,7 +416,7 @@ VALUES
   (1, 'WELCOME15', 'percentage', 0, 15, 300000, 120000, 'both', 'Voucher chào mừng khách hàng dùng cho lần đặt lịch tiếp theo.', DATE_ADD(NOW(), INTERVAL 30 DAY), 200, 'active', 1),
   (2, 'VIP120K', 'fixed', 120000, NULL, 700000, NULL, 'vip', 'Ưu đãi dành cho khách VIP có tổng chi tiêu cao.', DATE_ADD(NOW(), INTERVAL 45 DAY), 100, 'active', 1);
 
-INSERT INTO voucher_assignments (voucher_id, customer_id, max_usage_customer)
+INSERT INTO voucher_assignments (voucher_id, user_id, max_usage_customer)
 VALUES
   (1, 4, 1);
 

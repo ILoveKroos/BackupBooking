@@ -716,10 +716,6 @@ function Home({ userLocation = null }) {
             {/* ===== TRENDING SECTION - Category-based ===== */}
             {trendingCategories.length > 0 && (
               <div className="listing-group trending-section">
-                <div className="trending-header">
-                  <h3>Được đặt nhiều</h3>
-                </div>
-
                 <>
                   <div className="trending-category-tabs">
                     <button

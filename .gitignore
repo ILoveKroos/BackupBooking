@@ -5,6 +5,9 @@ frontend/build/
 artifacts/
 backend/.env
 frontend/.env
+.env.local
+backend/.env.local
+frontend/.env.local
 tmp_utf8_test.txt
 *.log
 .tools/

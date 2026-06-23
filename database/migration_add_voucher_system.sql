@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
 CREATE TABLE IF NOT EXISTS voucher_assignments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   voucher_id INT NOT NULL,
-  customer_id INT NOT NULL,
+  user_id INT NOT NULL,
   assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   max_usage_customer INT NOT NULL DEFAULT 1,
   usage_count INT NOT NULL DEFAULT 0,
@@ -96,16 +96,16 @@ CREATE TABLE IF NOT EXISTS voucher_assignments (
   total_discount_applied DECIMAL(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_voucher_customer (voucher_id, customer_id),
-  INDEX idx_voucher_assignments_customer (customer_id),
+  UNIQUE KEY uniq_voucher_user (voucher_id, user_id),
+  INDEX idx_voucher_assignments_user (user_id),
   INDEX idx_voucher_assignments_voucher (voucher_id),
   INDEX idx_voucher_assignments_status (status),
   INDEX idx_voucher_assignments_source (source),
   INDEX idx_voucher_assignments_shown_date (shown_date),
   CONSTRAINT fk_voucher_assignments_voucher
     FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
-  CONSTRAINT fk_voucher_assignments_customer
-    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_voucher_assignments_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_voucher_assignments_last_appointment
     FOREIGN KEY (last_appointment_id) REFERENCES appointments(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -168,7 +168,7 @@ SELECT
   (SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1)
 WHERE NOT EXISTS (SELECT 1 FROM vouchers WHERE code = 'VIP120K');
 
-INSERT IGNORE INTO voucher_assignments (voucher_id, customer_id, max_usage_customer)
+INSERT IGNORE INTO voucher_assignments (voucher_id, user_id, max_usage_customer)
 SELECT v.id, u.id, 1
 FROM vouchers v
 JOIN users u ON u.role = 'customer'

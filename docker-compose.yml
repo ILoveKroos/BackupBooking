@@ -1,0 +1,63 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: booking_system
+      MYSQL_USER: ${MYSQL_USER:-beautybook}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-beautybook_password}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/recreate_booking_system.sql:/docker-entrypoint-initdb.d/001-recreate_booking_system.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: mysql://${MYSQL_USER:-beautybook}:${MYSQL_PASSWORD:-beautybook_password}@db:3306/booking_system
+      JWT_SECRET: ${JWT_SECRET:-local_dev_secret_change_me_min_32_chars}
+      JWT_EXPIRE: 7d
+      PASSWORD_RESET_EXPIRE: 15m
+      FRONTEND_URL: http://localhost:${FRONTEND_PORT:-3000}
+      BACKEND_PUBLIC_URL: http://localhost:${BACKEND_PORT:-5000}
+      FRONTEND_PAYMENT_RETURN_URL: http://localhost:${FRONTEND_PORT:-3000}/payment-result
+      GENERAL_RATE_LIMIT_MAX: 10000
+      AUTOMATION_RUN_ON_STARTUP: "false"
+      GEMINI_ENABLED: "false"
+      VIETQR_BANK_BIN: ${VIETQR_BANK_BIN:-970405}
+      VIETQR_BANK_NAME: ${VIETQR_BANK_NAME:-Agribank}
+      VIETQR_TEMPLATE: ${VIETQR_TEMPLATE:-compact2}
+      VIETQR_EXPIRE_SECONDS: ${VIETQR_EXPIRE_SECONDS:-300}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: http://localhost:${BACKEND_PORT:-5000}/api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+
+volumes:
+  mysql-data:

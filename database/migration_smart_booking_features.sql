@@ -7,7 +7,25 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS rfm_score VARCHAR(10) DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rfm_updated_at TIMESTAMP NULL DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE DEFAULT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cancellation_count INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cancellation_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS noshow_count INT DEFAULT 0;
+
+UPDATE users u
+LEFT JOIN (
+  SELECT
+    user_id,
+    COUNT(*) AS total_bookings,
+    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_bookings
+  FROM appointments
+  GROUP BY user_id
+) stats ON stats.user_id = u.id
+SET
+  u.cancellation_count = COALESCE(stats.cancelled_bookings, 0),
+  u.cancellation_rate = CASE
+    WHEN COALESCE(stats.total_bookings, 0) = 0 THEN 0
+    ELSE LEAST(100, GREATEST(0, ROUND(COALESCE(stats.cancelled_bookings, 0) * 100.0 / stats.total_bookings, 2)))
+  END
+WHERE u.role = 'customer';
 
 -- 2. Appointments table: reminder tracking
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_sent TINYINT(1) DEFAULT 0;
