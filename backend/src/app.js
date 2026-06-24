@@ -102,7 +102,7 @@ const clusteringService = require('./services/clusteringService');
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(cors(expressCorsOptions));
+app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
