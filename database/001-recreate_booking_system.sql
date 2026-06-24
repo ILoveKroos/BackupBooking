@@ -1,10 +1,29 @@
-DROP DATABASE IF EXISTS booking_system;
-CREATE DATABASE booking_system
+CREATE DATABASE IF NOT EXISTS booking_system
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
 USE booking_system;
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Xóa tất cả bảng cũ (thứ tự ngược FK)
+DROP TABLE IF EXISTS chat_bot_responses;
+DROP TABLE IF EXISTS chat_faq;
+DROP TABLE IF EXISTS chat_suggestions;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS chat_conversations;
+DROP TABLE IF EXISTS voucher_assignments;
+DROP TABLE IF EXISTS vouchers;
+DROP TABLE IF EXISTS staff_weekly_availability;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS appointment_services;
+DROP TABLE IF EXISTS appointments;
+DROP TABLE IF EXISTS service_category;
+DROP TABLE IF EXISTS services;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS staff_role;
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE staff_role (
   id INT AUTO_INCREMENT PRIMARY KEY,
